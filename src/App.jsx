@@ -133,12 +133,6 @@ const XP_LEVELS = [
   {level:6,min:1500,max:9999, label:"Élite",       color:"#00e5cc"},
 ];
 
-const POMO_PRESETS=[
-  {label:"Clásico",work:25,brk:5, desc:"El estándar"},
-  {label:"Largo",  work:50,brk:10,desc:"Sesión profunda"},
-  {label:"Corto",  work:15,brk:3, desc:"Días fragmentados"},
-  {label:"Ultra",  work:90,brk:20,desc:"Modo flow"},
-];
 
 function getStreak(ds){if(!ds.length)return 0;const s=[...ds].sort((a,b)=>toDate(b)-toDate(a));let st=1,pr=toDate(s[0]);for(let i=1;i<s.length;i++){const c=toDate(s[i]);if(Math.round((pr-c)/86400000)===1){st++;pr=c;}else break;}return st;}
 function toDate(str){const[m,d,y]=str.split("/").map(Number);return new Date(y,m-1,d);}
@@ -268,17 +262,6 @@ export default function App(){
   const[manualForm,setManualForm]=useState({customerId:"",startTime:"",endTime:"",duration:"",pay:""});
   const[editingId,setEditingId]=useState(null);
   const[editForm,setEditForm]=useState({});
-  const[pomoTab,setPomoTab]=useState("timer");
-  const[pomoWork,setPomoWork]=useState(25);
-  const[pomoBreak,setPomoBreak]=useState(5);
-  const[pomoState,setPomoState]=useState("idle");
-  const[pomoSeconds,setPomoSeconds]=useState(0);
-  const[pomoRounds,setPomoRounds]=useState(0);
-  const pomoRef=useRef(null);
-  const[alarmMins,setAlarmMins]=useState(10);
-  const[alarmEnabled,setAlarmEnabled]=useState(false);
-  const[alarmFired,setAlarmFired]=useState(false);
-  const alarmRef=useRef(null);
   const[importStep,setImportStep]=useState("idle");
   const[importPreview,setImportPreview]=useState([]);
   const[importError,setImportError]=useState("");
@@ -290,21 +273,6 @@ export default function App(){
   useEffect(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(calls));}catch{}},[calls]);
   useEffect(()=>{if(!window.XLSX){const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";document.head.appendChild(s);}},[]);
   useEffect(()=>{if(liveActive){liveRef.current=setInterval(()=>setLiveSeconds(s=>s+1),1000);}else{clearInterval(liveRef.current);}return()=>clearInterval(liveRef.current);},[liveActive]);
-  useEffect(()=>{
-    if(pomoState==="work"||pomoState==="break"){const total=(pomoState==="work"?pomoWork:pomoBreak)*60;pomoRef.current=setInterval(()=>{setPomoSeconds(s=>{if(s+1>=total){clearInterval(pomoRef.current);playBeep(pomoState==="work"?880:440);if(pomoState==="work"){setPomoState("break");setPomoSeconds(0);setPomoRounds(r=>r+1);}else{setPomoState("idle");setPomoSeconds(0);}return 0;}return s+1;});},1000);}
-    return()=>clearInterval(pomoRef.current);
-  },[pomoState,pomoWork,pomoBreak]);
-  const[nowTick,setNowTick]=useState(Date.now());
-  useEffect(()=>{const t=setInterval(()=>setNowTick(Date.now()),60000);return()=>clearInterval(t);},[]);
-  useEffect(()=>{if(calls.length>0)localStorage.setItem("last_call_ts",String(Date.now()));},[calls.length]);
-  useEffect(()=>{
-    if(!alarmEnabled){setAlarmFired(false);return;}
-    const ts=parseInt(localStorage.getItem("last_call_ts")||"0");
-    if(!ts){setAlarmFired(false);return;}
-    const mins=Math.floor((Date.now()-ts)/60000);
-    if(mins>=alarmMins){setAlarmFired(true);playBeep(330,0.8,0.6);}
-    else{setAlarmFired(false);}
-  },[nowTick,alarmEnabled,alarmMins]);
 
   function playBeep(freq=660,vol=0.5,dur=0.4){try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=freq;g.gain.setValueAtTime(vol,ctx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);o.start();o.stop(ctx.currentTime+dur);}catch{}}
   function showToast(msg){setToast(msg);setTimeout(()=>setToast(""),3000);}
@@ -316,8 +284,6 @@ export default function App(){
   function startEdit(c){setEditingId(c.id);setEditForm({callStart:c.callStart,duration:String(c.duration),pay:String(c.pay),customerId:c.customerId});}
   function handleEditChange(field,val){setEditForm(p=>{const next={...p,[field]:val};if(field==="duration"&&val)next.pay=String(parseFloat((parseInt(val)*activeRate).toFixed(2)));return next;});}
   function saveEdit(id){setCalls(prev=>prev.map(c=>c.id===id?{...c,callStart:editForm.callStart,duration:parseInt(editForm.duration)||c.duration,pay:parseFloat(editForm.pay)||c.pay,customerId:editForm.customerId||c.customerId}:c));setEditingId(null);showToast("✏️ Actualizado");}
-  function startPomo(){setPomoState("work");setPomoSeconds(0);}
-  function stopPomo(){setPomoState("idle");setPomoSeconds(0);clearInterval(pomoRef.current);}
   async function handleFileLoad(file){if(!file)return;setImportError("");setImportFileName(file.name);const isXLSX=/\.xlsx?$/i.test(file.name),isCSV=/\.csv$/i.test(file.name);if(!isXLSX&&!isCSV){setImportError("Solo CSV o Excel.");return;}try{let headers=[],rows=[];if(isCSV){const text=await file.text();({headers,rows}=parseCSVText(text));}else{const buf=await file.arrayBuffer();const XLSX=window.XLSX;if(!XLSX){setImportError("Librería no disponible.");return;}const wb=XLSX.read(buf,{type:"array"});const ws=wb.Sheets[wb.SheetNames[0]];const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});headers=data[0].map(h=>String(h).trim());rows=data.slice(1).map(r=>r.map(v=>String(v).trim()));}if(!headers.length){setImportError("Archivo vacío.");return;}const preview=rowsToCallsSmart(rows,headers);if(!preview.length){setImportError("Sin filas válidas.");return;}setImportPreview(preview);setImportStats({total:preview.length,surge:preview.filter(c=>c.surge).length,totalPay:preview.reduce((s,c)=>s+c.pay,0),totalMins:preview.reduce((s,c)=>s+c.duration,0)});setImportStep("preview");}catch(e){setImportError("Error: "+e.message);}}
   function confirmImport(){const existing=new Set(calls.map(c=>`${c.customerId}-${c.date}-${c.callStart}`));const newCalls=importPreview.filter(c=>!existing.has(`${c.customerId}-${c.date}-${c.callStart}`));setCalls(prev=>[...prev,...newCalls]);setImportStep("done");showToast(`✅ ${newCalls.length} importadas`);}
   function resetImport(){setImportStep("idle");setImportPreview([]);setImportError("");setImportFileName("");setImportStats(null);if(fileRef.current)fileRef.current.value="";}
@@ -326,9 +292,6 @@ export default function App(){
   function exportXLSX(){const XLSX=window.XLSX;if(!XLSX){showToast("⚠️ Librería no disponible");return;}const rows=getExportRows();if(!rows.length){showToast("⚠️ Sin llamadas para exportar");return;}const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Llamadas");XLSX.writeFile(wb,`call-tracker-${today()}.xlsx`);showToast("✅ Excel exportado");}
 
   const todayStr=today();
-  const lastCallTs=parseInt(localStorage.getItem("last_call_ts")||"0");
-  const minsIdle=lastCallTs?Math.floor((nowTick-lastCallTs)/60000):null;
-  const idleAlert=alarmEnabled&&minsIdle!==null&&minsIdle>=alarmMins;
   const billableCalls=calls.filter(c=>c.billable==="Yes");
   const byDate=groupByDate(billableCalls);
   const todayCalls=byDate[todayStr]||[];
@@ -413,15 +376,9 @@ export default function App(){
         </div>
       )}
 
-      {alarmFired&&(
-        <div style={{position:"fixed",top:liveActive?56:0,left:0,right:0,background:"linear-gradient(135deg,#1a0008,#240010)",borderBottom:"1px solid var(--red)",zIndex:140,padding:"12px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"var(--red)"}}>⏰ {alarmMins} min sin registrar</div>
-          <button onClick={()=>setAlarmFired(false)} style={{background:"var(--red)",border:"none",borderRadius:8,color:"#fff",padding:"6px 14px",cursor:"pointer",fontWeight:700,fontSize:12}}>OK</button>
-        </div>
-      )}
 
       {/* HEADER */}
-      <div style={{padding:"20px 20px 0",display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:liveActive||alarmFired?56:0}}>
+      <div style={{padding:"20px 20px 0",display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:liveActive?56:0}}>
         <div>
           <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1.5,fontFamily:"var(--mono)"}}>CALL TRACKER</div>
           <div style={{fontSize:11,color:"var(--text2)",marginTop:1,fontFamily:"var(--mono)"}}>{todayStr}</div>
@@ -633,85 +590,6 @@ export default function App(){
               ))}
             </div>
 
-            {/* INACTIVIDAD + ALARMA */}
-            <div style={{...CC.card,padding:18,marginBottom:12,border:`1px solid ${idleAlert?"var(--red)44":"var(--border)"}`}} className="card">
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                <div>
-                  <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>ÚLTIMA LLAMADA</div>
-                  {minsIdle===null
-                    ?<div style={{fontSize:13,color:"var(--text3)"}}>Sin llamadas registradas</div>
-                    :<div style={{display:"flex",alignItems:"baseline",gap:6}}>
-                      <div style={{fontSize:28,fontWeight:900,fontFamily:"var(--mono)",color:idleAlert?"var(--red)":minsIdle>10?"var(--amber)":"var(--green)",lineHeight:1}}>{minsIdle}</div>
-                      <div style={{fontSize:12,fontWeight:700,color:idleAlert?"var(--red)":minsIdle>10?"var(--amber)":"var(--green)"}}>min atrás</div>
-                      {idleAlert&&<span style={{fontSize:10,background:"var(--red)22",color:"var(--red)",padding:"2px 7px",borderRadius:6,fontWeight:700,marginLeft:4}}>⏰ inactivo</span>}
-                    </div>
-                  }
-                </div>
-                <button onClick={()=>{setAlarmEnabled(p=>{const next=!p;if(!next)setAlarmFired(false);return next;});}} style={{background:alarmEnabled?"var(--red)22":"var(--bg)",border:`2px solid ${alarmEnabled?"var(--red)":"var(--border2)"}`,borderRadius:99,padding:"6px 16px",cursor:"pointer",fontWeight:800,fontSize:11,fontFamily:"var(--mono)",color:alarmEnabled?"var(--red)":"var(--text3)",transition:"all .2s",letterSpacing:1}}>{alarmEnabled?"ON":"OFF"}</button>
-              </div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {[5,10,15,20,30].map(m=><Pill key={m} active={alarmMins===m} onClick={()=>{setAlarmMins(m);setAlarmFired(false);}} color="var(--red)">{m}m</Pill>)}
-              </div>
-              {idleAlert&&<button onClick={()=>setAlarmFired(false)} style={{marginTop:10,width:"100%",background:"var(--red)11",border:"1px solid var(--red)44",borderRadius:8,color:"var(--red)",padding:"8px",fontWeight:700,cursor:"pointer",fontSize:12}}>✓ Visto</button>}
-            </div>
-
-            {/* POMODORO */}
-            <div style={{...CC.card,padding:18,marginBottom:12}} className="card">
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-                <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>POMODORO</div>
-                <div style={{display:"flex",gap:6}}>
-                  <Pill active={pomoTab==="timer"} onClick={()=>setPomoTab("timer")}>⏱ Timer</Pill>
-                  <Pill active={pomoTab==="settings"} onClick={()=>setPomoTab("settings")}>⚙ Config</Pill>
-                </div>
-              </div>
-              {pomoTab==="timer"&&(()=>{
-                const total=(pomoState==="work"?pomoWork:pomoState==="break"?pomoBreak:pomoWork)*60;
-                const remaining=total-pomoSeconds;
-                const pct=pomoState==="idle"?1:(total-pomoSeconds)/total;
-                const r=44,circ=2*Math.PI*r;
-                const color=pomoState==="work"?"var(--red)":pomoState==="break"?"var(--green)":"var(--text3)";
-                return(
-                  <div style={{display:"flex",alignItems:"center",gap:20}}>
-                    <div style={{position:"relative",flexShrink:0}}>
-                      <svg width="108" height="108" style={{transform:"rotate(-90deg)"}}>
-                        <circle cx="54" cy="54" r={r} fill="none" stroke="var(--border)" strokeWidth="7"/>
-                        <circle cx="54" cy="54" r={r} fill="none" stroke={color} strokeWidth="7" strokeDasharray={circ} strokeDashoffset={circ*(1-pct)} strokeLinecap="round" style={{transition:"stroke-dashoffset .5s",filter:`drop-shadow(0 0 5px ${color})`}}/>
-                      </svg>
-                      <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
-                        <div style={{fontSize:22,fontWeight:900,fontFamily:"var(--mono)",color:pomoState==="idle"?"var(--text3)":color}}>{fmtTime(pomoState==="idle"?pomoWork*60:remaining)}</div>
-                        {pomoRounds>0&&<div style={{fontSize:10,color:"var(--amber)",fontFamily:"var(--mono)"}}>×{pomoRounds}🍅</div>}
-                      </div>
-                    </div>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:11,color:color,fontWeight:700,letterSpacing:1,marginBottom:12}}>{pomoState==="work"?"● TRABAJANDO":pomoState==="break"?"● DESCANSO":"○ LISTO"}</div>
-                      {pomoState==="idle"
-                        ?<button className="btn-primary" onClick={startPomo} style={{background:"var(--red)",border:"none",borderRadius:10,color:"#fff",padding:"10px 24px",fontWeight:800,cursor:"pointer",fontSize:14}}>▶ Iniciar</button>
-                        :<button className="action-btn" onClick={stopPomo} style={{background:"var(--bg)",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"10px 24px",fontWeight:800,cursor:"pointer",fontSize:14}}>⏹ Detener</button>
-                      }
-                      <div style={{marginTop:8,fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)"}}>{pomoWork}m trabajo · {pomoBreak}m descanso</div>
-                    </div>
-                  </div>
-                );
-              })()}
-              {pomoTab==="settings"&&(
-                <div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
-                    {POMO_PRESETS.map(p=>{const active=pomoWork===p.work&&pomoBreak===p.brk;return(
-                      <button key={p.label} className="rate-btn" onClick={()=>{setPomoWork(p.work);setPomoBreak(p.brk);stopPomo();}} style={{padding:"10px",borderRadius:10,border:"none",cursor:"pointer",textAlign:"left",background:active?"var(--cyan)11":"var(--bg)",outline:active?"1px solid var(--cyan)44":"1px solid var(--border)"}}>
-                        <div style={{fontWeight:700,fontSize:12,color:active?"var(--cyan)":"var(--text)"}}>{p.label}</div>
-                        <div style={{fontSize:11,fontFamily:"var(--mono)",color:"var(--text2)",marginTop:2}}>{p.work}m / {p.brk}m</div>
-                      </button>
-                    );})}
-                  </div>
-                  {[["🔴 Trabajo",pomoWork,setPomoWork,1,120],["🟢 Descanso",pomoBreak,setPomoBreak,1,60]].map(([label,val,setter,min,max])=>(
-                    <div key={label} style={{marginBottom:12}}>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"var(--text2)",marginBottom:6}}><span>{label}</span><span style={{fontFamily:"var(--mono)",color:"var(--text)",fontWeight:700}}>{val}m</span></div>
-                      <input type="range" min={min} max={max} value={val} onChange={e=>{setter(parseInt(e.target.value));stopPomo();}} style={{width:"100%"}}/>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
 
             <div style={{...CC.card,padding:20}} className="card">
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
