@@ -259,7 +259,6 @@ export default function App(){
   const[activeRate,setActiveRate]=useState(0.12);
   const[cycleView,setCycleView]=useState("current");
   const[achTab,setAchTab]=useState("daily");
-  const[idleSeconds,setIdleSeconds]=useState(0);
   const[liveActive,setLiveActive]=useState(false);
   const[liveSeconds,setLiveSeconds]=useState(0);
   const[liveStart,setLiveStart]=useState(null);
@@ -295,10 +294,17 @@ export default function App(){
     if(pomoState==="work"||pomoState==="break"){const total=(pomoState==="work"?pomoWork:pomoBreak)*60;pomoRef.current=setInterval(()=>{setPomoSeconds(s=>{if(s+1>=total){clearInterval(pomoRef.current);playBeep(pomoState==="work"?880:440);if(pomoState==="work"){setPomoState("break");setPomoSeconds(0);setPomoRounds(r=>r+1);}else{setPomoState("idle");setPomoSeconds(0);}return 0;}return s+1;});},1000);}
     return()=>clearInterval(pomoRef.current);
   },[pomoState,pomoWork,pomoBreak]);
-  useEffect(()=>{if(!alarmEnabled){clearInterval(alarmRef.current);setAlarmFired(false);return;}setAlarmFired(false);alarmRef.current=setInterval(()=>{setAlarmFired(true);playBeep(330,0.8,0.6);},alarmMins*60*1000);return()=>clearInterval(alarmRef.current);},[alarmEnabled,alarmMins]);
-  useEffect(()=>{setAlarmFired(false);if(alarmEnabled){clearInterval(alarmRef.current);alarmRef.current=setInterval(()=>{setAlarmFired(true);playBeep(330,0.8,0.6);},alarmMins*60*1000);}},[calls.length]);
-  useEffect(()=>{if(tab!=="perf")return;const t=setInterval(()=>setIdleSeconds(s=>s+1),1000);return()=>clearInterval(t);},[tab]);
-  useEffect(()=>setIdleSeconds(0),[calls.length]);
+  const[nowTick,setNowTick]=useState(Date.now());
+  useEffect(()=>{const t=setInterval(()=>setNowTick(Date.now()),60000);return()=>clearInterval(t);},[]);
+  useEffect(()=>{if(calls.length>0)localStorage.setItem("last_call_ts",String(Date.now()));},[calls.length]);
+  useEffect(()=>{
+    if(!alarmEnabled){setAlarmFired(false);return;}
+    const ts=parseInt(localStorage.getItem("last_call_ts")||"0");
+    if(!ts){setAlarmFired(false);return;}
+    const mins=Math.floor((Date.now()-ts)/60000);
+    if(mins>=alarmMins){setAlarmFired(true);playBeep(330,0.8,0.6);}
+    else{setAlarmFired(false);}
+  },[nowTick,alarmEnabled,alarmMins]);
 
   function playBeep(freq=660,vol=0.5,dur=0.4){try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=freq;g.gain.setValueAtTime(vol,ctx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);o.start();o.stop(ctx.currentTime+dur);}catch{}}
   function showToast(msg){setToast(msg);setTimeout(()=>setToast(""),3000);}
@@ -320,6 +326,9 @@ export default function App(){
   function exportXLSX(){const XLSX=window.XLSX;if(!XLSX){showToast("⚠️ Librería no disponible");return;}const rows=getExportRows();if(!rows.length){showToast("⚠️ Sin llamadas para exportar");return;}const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Llamadas");XLSX.writeFile(wb,`call-tracker-${today()}.xlsx`);showToast("✅ Excel exportado");}
 
   const todayStr=today();
+  const lastCallTs=parseInt(localStorage.getItem("last_call_ts")||"0");
+  const minsIdle=lastCallTs?Math.floor((nowTick-lastCallTs)/60000):null;
+  const idleAlert=alarmEnabled&&minsIdle!==null&&minsIdle>=alarmMins;
   const billableCalls=calls.filter(c=>c.billable==="Yes");
   const byDate=groupByDate(billableCalls);
   const todayCalls=byDate[todayStr]||[];
@@ -362,7 +371,6 @@ export default function App(){
   const score=Math.round(scoreGoal+scoreRhythm+scoreStreak+scoreHours);
   const scoreColor=score>=75?"var(--green)":score>=45?"var(--amber)":"var(--red)";
   const scoreLabel=score>=75?"Excelente":score>=45?"Bien":score>=20?"Flojo":"Inactivo";
-  const idleCost=(idleSeconds/60*0.12).toFixed(3);
   const DAILY_QUESTS=getDailyQuests(todayStr);
   const completedDaily=DAILY_QUESTS.filter(q=>q.check(todayCalls,config));
   const unlockedAch=ACHIEVEMENTS.filter(a=>a.check(billableCalls,byDate,config));
@@ -381,7 +389,6 @@ export default function App(){
     {id:"perf", icon:"⚡",label:"Stats"},
     {id:"week", icon:"▦", label:"Semana"},
     {id:"cycle",icon:"◎",label:"Ciclo"},
-    {id:"focus",icon:"⏺",label:"Focus"},
     {id:"history",icon:"≡",label:"Historial"},
   ];
 
@@ -492,7 +499,18 @@ export default function App(){
       {showManual&&(
         <Modal onClose={()=>{setShowManual(false);setLiveStart(null);}}>
           <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>NUEVA LLAMADA</div>
-          <div style={{fontSize:18,fontWeight:700,color:"var(--text)",marginBottom:18}}>{liveStart?"Guardar llamada grabada":"Agregar manualmente"}</div>
+          <div style={{fontSize:18,fontWeight:700,color:"var(--text)",marginBottom:16}}>{liveStart?"Guardar llamada grabada":"Agregar manualmente"}</div>
+          <div style={{marginBottom:14}}>
+            <label style={CC.label}>Tarifa activa</label>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+              {RATES.map(r=>{const active=activeRate===r.value;return(
+                <button key={r.value} className="rate-btn" onClick={()=>{setActiveRate(r.value);setManualForm(p=>({...p,pay:String(parseFloat((parseInt(p.duration||0)*r.value).toFixed(2)))}));}} style={{padding:"8px 10px",borderRadius:8,border:"none",cursor:"pointer",background:active?`${r.color}22`:"var(--bg)",outline:active?`1px solid ${r.color}88`:"1px solid var(--border)",display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{color:r.color,fontSize:14}}>{r.icon}</span>
+                  <div style={{textAlign:"left"}}><div style={{fontWeight:800,fontSize:12,color:active?r.color:"var(--text)",fontFamily:"var(--mono)"}}>${r.value}/min</div><div style={{fontSize:10,color:"var(--text3)"}}>{r.label}</div></div>
+                </button>
+              );})}
+            </div>
+          </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
             {[["ID Cliente","customerId","text","Opcional"],["Hora inicio","startTime","text","08:00 AM"],["Hora fin","endTime","text","08:15 AM"],["Minutos","duration","number","15"]].map(([label,field,type,ph])=>(
               <div key={field}>
@@ -615,6 +633,86 @@ export default function App(){
               ))}
             </div>
 
+            {/* INACTIVIDAD + ALARMA */}
+            <div style={{...CC.card,padding:18,marginBottom:12,border:`1px solid ${idleAlert?"var(--red)44":"var(--border)"}`}} className="card">
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                <div>
+                  <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>ÚLTIMA LLAMADA</div>
+                  {minsIdle===null
+                    ?<div style={{fontSize:13,color:"var(--text3)"}}>Sin llamadas registradas</div>
+                    :<div style={{display:"flex",alignItems:"baseline",gap:6}}>
+                      <div style={{fontSize:28,fontWeight:900,fontFamily:"var(--mono)",color:idleAlert?"var(--red)":minsIdle>10?"var(--amber)":"var(--green)",lineHeight:1}}>{minsIdle}</div>
+                      <div style={{fontSize:12,fontWeight:700,color:idleAlert?"var(--red)":minsIdle>10?"var(--amber)":"var(--green)"}}>min atrás</div>
+                      {idleAlert&&<span style={{fontSize:10,background:"var(--red)22",color:"var(--red)",padding:"2px 7px",borderRadius:6,fontWeight:700,marginLeft:4}}>⏰ inactivo</span>}
+                    </div>
+                  }
+                </div>
+                <button onClick={()=>{setAlarmEnabled(p=>{const next=!p;if(!next)setAlarmFired(false);return next;});}} style={{background:alarmEnabled?"var(--red)22":"var(--bg)",border:`2px solid ${alarmEnabled?"var(--red)":"var(--border2)"}`,borderRadius:99,padding:"6px 16px",cursor:"pointer",fontWeight:800,fontSize:11,fontFamily:"var(--mono)",color:alarmEnabled?"var(--red)":"var(--text3)",transition:"all .2s",letterSpacing:1}}>{alarmEnabled?"ON":"OFF"}</button>
+              </div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {[5,10,15,20,30].map(m=><Pill key={m} active={alarmMins===m} onClick={()=>{setAlarmMins(m);setAlarmFired(false);}} color="var(--red)">{m}m</Pill>)}
+              </div>
+              {idleAlert&&<button onClick={()=>setAlarmFired(false)} style={{marginTop:10,width:"100%",background:"var(--red)11",border:"1px solid var(--red)44",borderRadius:8,color:"var(--red)",padding:"8px",fontWeight:700,cursor:"pointer",fontSize:12}}>✓ Visto</button>}
+            </div>
+
+            {/* POMODORO */}
+            <div style={{...CC.card,padding:18,marginBottom:12}} className="card">
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>POMODORO</div>
+                <div style={{display:"flex",gap:6}}>
+                  <Pill active={pomoTab==="timer"} onClick={()=>setPomoTab("timer")}>⏱ Timer</Pill>
+                  <Pill active={pomoTab==="settings"} onClick={()=>setPomoTab("settings")}>⚙ Config</Pill>
+                </div>
+              </div>
+              {pomoTab==="timer"&&(()=>{
+                const total=(pomoState==="work"?pomoWork:pomoState==="break"?pomoBreak:pomoWork)*60;
+                const remaining=total-pomoSeconds;
+                const pct=pomoState==="idle"?1:(total-pomoSeconds)/total;
+                const r=44,circ=2*Math.PI*r;
+                const color=pomoState==="work"?"var(--red)":pomoState==="break"?"var(--green)":"var(--text3)";
+                return(
+                  <div style={{display:"flex",alignItems:"center",gap:20}}>
+                    <div style={{position:"relative",flexShrink:0}}>
+                      <svg width="108" height="108" style={{transform:"rotate(-90deg)"}}>
+                        <circle cx="54" cy="54" r={r} fill="none" stroke="var(--border)" strokeWidth="7"/>
+                        <circle cx="54" cy="54" r={r} fill="none" stroke={color} strokeWidth="7" strokeDasharray={circ} strokeDashoffset={circ*(1-pct)} strokeLinecap="round" style={{transition:"stroke-dashoffset .5s",filter:`drop-shadow(0 0 5px ${color})`}}/>
+                      </svg>
+                      <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+                        <div style={{fontSize:22,fontWeight:900,fontFamily:"var(--mono)",color:pomoState==="idle"?"var(--text3)":color}}>{fmtTime(pomoState==="idle"?pomoWork*60:remaining)}</div>
+                        {pomoRounds>0&&<div style={{fontSize:10,color:"var(--amber)",fontFamily:"var(--mono)"}}>×{pomoRounds}🍅</div>}
+                      </div>
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:11,color:color,fontWeight:700,letterSpacing:1,marginBottom:12}}>{pomoState==="work"?"● TRABAJANDO":pomoState==="break"?"● DESCANSO":"○ LISTO"}</div>
+                      {pomoState==="idle"
+                        ?<button className="btn-primary" onClick={startPomo} style={{background:"var(--red)",border:"none",borderRadius:10,color:"#fff",padding:"10px 24px",fontWeight:800,cursor:"pointer",fontSize:14}}>▶ Iniciar</button>
+                        :<button className="action-btn" onClick={stopPomo} style={{background:"var(--bg)",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"10px 24px",fontWeight:800,cursor:"pointer",fontSize:14}}>⏹ Detener</button>
+                      }
+                      <div style={{marginTop:8,fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)"}}>{pomoWork}m trabajo · {pomoBreak}m descanso</div>
+                    </div>
+                  </div>
+                );
+              })()}
+              {pomoTab==="settings"&&(
+                <div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+                    {POMO_PRESETS.map(p=>{const active=pomoWork===p.work&&pomoBreak===p.brk;return(
+                      <button key={p.label} className="rate-btn" onClick={()=>{setPomoWork(p.work);setPomoBreak(p.brk);stopPomo();}} style={{padding:"10px",borderRadius:10,border:"none",cursor:"pointer",textAlign:"left",background:active?"var(--cyan)11":"var(--bg)",outline:active?"1px solid var(--cyan)44":"1px solid var(--border)"}}>
+                        <div style={{fontWeight:700,fontSize:12,color:active?"var(--cyan)":"var(--text)"}}>{p.label}</div>
+                        <div style={{fontSize:11,fontFamily:"var(--mono)",color:"var(--text2)",marginTop:2}}>{p.work}m / {p.brk}m</div>
+                      </button>
+                    );})}
+                  </div>
+                  {[["🔴 Trabajo",pomoWork,setPomoWork,1,120],["🟢 Descanso",pomoBreak,setPomoBreak,1,60]].map(([label,val,setter,min,max])=>(
+                    <div key={label} style={{marginBottom:12}}>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"var(--text2)",marginBottom:6}}><span>{label}</span><span style={{fontFamily:"var(--mono)",color:"var(--text)",fontWeight:700}}>{val}m</span></div>
+                      <input type="range" min={min} max={max} value={val} onChange={e=>{setter(parseInt(e.target.value));stopPomo();}} style={{width:"100%"}}/>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div style={{...CC.card,padding:20}} className="card">
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
                 <div style={{fontWeight:700,color:"var(--text)",fontSize:14}}>Llamadas de hoy</div>
@@ -662,13 +760,6 @@ export default function App(){
               </div>
             </div>
 
-            <div style={{...CC.cardGlow("var(--red)"),padding:20,marginBottom:12}} className="card">
-              <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>INACTIVIDAD</div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div><div style={{fontSize:32,fontWeight:900,fontFamily:"var(--mono)",color:"var(--red)"}}>${idleCost}</div><div style={{fontSize:11,color:"var(--text2)",marginTop:2}}>{Math.floor(idleSeconds/60)}m {idleSeconds%60}s sin registrar</div></div>
-                <div style={{fontSize:32,opacity:.25}}>💸</div>
-              </div>
-            </div>
 
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
               {[["vs Ayer",todayMoney,yestMoney,weekMins,yestMins],["vs Sem. pasada",weekMoney,lwMoney,weekMins,lwMins]].map(([label,curM,prevM,curMin,prevMin])=>{
@@ -829,73 +920,6 @@ export default function App(){
         )}
 
         {/* FOCUS */}
-        {tab==="focus"&&(
-          <div>
-            <div style={{...CC.card,padding:20,marginBottom:12}} className="card">
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-                <div><div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>ALARMA DE INACTIVIDAD</div><div style={{fontSize:13,color:"var(--text2)"}}>Suena si no registras en X min</div></div>
-                <button onClick={()=>setAlarmEnabled(p=>!p)} style={{background:alarmEnabled?"var(--green)22":"var(--bg)",border:`2px solid ${alarmEnabled?"var(--green)":"var(--border2)"}`,borderRadius:99,padding:"7px 20px",cursor:"pointer",fontWeight:800,fontSize:12,fontFamily:"var(--mono)",color:alarmEnabled?"var(--green)":"var(--text3)",transition:"all .2s",letterSpacing:1}}>{alarmEnabled?"ON":"OFF"}</button>
-              </div>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                {[5,10,15,20,30].map(m=><Pill key={m} active={alarmMins===m} onClick={()=>setAlarmMins(m)} color="var(--red)">{m}m</Pill>)}
-              </div>
-              {alarmEnabled&&<div style={{marginTop:10,fontSize:11,color:"var(--green)",fontFamily:"var(--mono)"}}>● activa · {alarmMins}m</div>}
-            </div>
-
-            <div style={{...CC.card,padding:20}} className="card">
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-                <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>POMODORO</div>
-                <div style={{display:"flex",gap:6}}>
-                  <Pill active={pomoTab==="timer"} onClick={()=>setPomoTab("timer")}>⏱ Timer</Pill>
-                  <Pill active={pomoTab==="settings"} onClick={()=>setPomoTab("settings")}>⚙ Config</Pill>
-                </div>
-              </div>
-              {pomoTab==="timer"&&(()=>{
-                const total=(pomoState==="work"?pomoWork:pomoState==="break"?pomoBreak:pomoWork)*60;
-                const remaining=total-pomoSeconds;
-                const pct=pomoState==="idle"?1:(total-pomoSeconds)/total;
-                const r=56,circ=2*Math.PI*r;
-                const color=pomoState==="work"?"var(--red)":pomoState==="break"?"var(--green)":"var(--text3)";
-                return(
-                  <div style={{textAlign:"center"}}>
-                    <div style={{fontSize:10,color:color,fontWeight:700,letterSpacing:2,marginBottom:12}}>{pomoState==="work"?"● TRABAJANDO":pomoState==="break"?"● DESCANSO":"○ LISTO"}</div>
-                    <div style={{position:"relative",display:"inline-block",margin:"0 0 16px"}}>
-                      <svg width="148" height="148" style={{transform:"rotate(-90deg)"}}>
-                        <circle cx="74" cy="74" r={r} fill="none" stroke="var(--border)" strokeWidth="8"/>
-                        <circle cx="74" cy="74" r={r} fill="none" stroke={color} strokeWidth="8" strokeDasharray={circ} strokeDashoffset={circ*(1-pct)} strokeLinecap="round" style={{transition:"stroke-dashoffset .5s",filter:`drop-shadow(0 0 6px ${color})`}}/>
-                      </svg>
-                      <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
-                        <div style={{fontSize:32,fontWeight:900,fontFamily:"var(--mono)",color:pomoState==="idle"?"var(--text3)":color}}>{fmtTime(pomoState==="idle"?pomoWork*60:remaining)}</div>
-                        {pomoRounds>0&&<div style={{fontSize:11,color:"var(--amber)",fontFamily:"var(--mono)",marginTop:2}}>×{pomoRounds} 🍅</div>}
-                      </div>
-                    </div>
-                    <div>{pomoState==="idle"?<button className="btn-primary" onClick={startPomo} style={{background:"var(--red)",border:"none",borderRadius:12,color:"#fff",padding:"13px 36px",fontWeight:800,cursor:"pointer",fontSize:16}}>▶ Iniciar</button>:<button className="action-btn" onClick={stopPomo} style={{background:"var(--bg)",border:"1px solid var(--border2)",borderRadius:12,color:"var(--text2)",padding:"13px 36px",fontWeight:800,cursor:"pointer",fontSize:16}}>⏹ Detener</button>}</div>
-                    <div style={{marginTop:12,fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)"}}>{pomoWork}m · {pomoBreak}m descanso</div>
-                  </div>
-                );
-              })()}
-              {pomoTab==="settings"&&(
-                <div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:18}}>
-                    {POMO_PRESETS.map(p=>{const active=pomoWork===p.work&&pomoBreak===p.brk;return(
-                      <button key={p.label} className="rate-btn" onClick={()=>{setPomoWork(p.work);setPomoBreak(p.brk);stopPomo();}} style={{padding:"12px",borderRadius:10,border:"none",cursor:"pointer",textAlign:"left",background:active?"var(--cyan)11":"var(--bg)",outline:active?"1px solid var(--cyan)44":"1px solid var(--border)"}}>
-                        <div style={{fontWeight:700,fontSize:13,color:active?"var(--cyan)":"var(--text)"}}>{p.label}</div>
-                        <div style={{fontSize:11,fontFamily:"var(--mono)",color:"var(--text2)",marginTop:3}}>{p.work}m / {p.brk}m</div>
-                        <div style={{fontSize:10,color:"var(--text3)",marginTop:2}}>{p.desc}</div>
-                      </button>
-                    );})}
-                  </div>
-                  {[["🔴 Trabajo",pomoWork,setPomoWork,1,120],["🟢 Descanso",pomoBreak,setPomoBreak,1,60]].map(([label,val,setter,min,max])=>(
-                    <div key={label} style={{marginBottom:16}}>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"var(--text2)",marginBottom:8}}><span>{label}</span><span style={{fontFamily:"var(--mono)",color:"var(--text)",fontWeight:700}}>{val}m</span></div>
-                      <input type="range" min={min} max={max} value={val} onChange={e=>{setter(parseInt(e.target.value));stopPomo();}} style={{width:"100%"}}/>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* HISTORY */}
         {tab==="history"&&(
