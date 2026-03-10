@@ -315,6 +315,9 @@ export default function App(){
   async function handleFileLoad(file){if(!file)return;setImportError("");setImportFileName(file.name);const isXLSX=/\.xlsx?$/i.test(file.name),isCSV=/\.csv$/i.test(file.name);if(!isXLSX&&!isCSV){setImportError("Solo CSV o Excel.");return;}try{let headers=[],rows=[];if(isCSV){const text=await file.text();({headers,rows}=parseCSVText(text));}else{const buf=await file.arrayBuffer();const XLSX=window.XLSX;if(!XLSX){setImportError("Librería no disponible.");return;}const wb=XLSX.read(buf,{type:"array"});const ws=wb.Sheets[wb.SheetNames[0]];const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});headers=data[0].map(h=>String(h).trim());rows=data.slice(1).map(r=>r.map(v=>String(v).trim()));}if(!headers.length){setImportError("Archivo vacío.");return;}const preview=rowsToCallsSmart(rows,headers);if(!preview.length){setImportError("Sin filas válidas.");return;}setImportPreview(preview);setImportStats({total:preview.length,surge:preview.filter(c=>c.surge).length,totalPay:preview.reduce((s,c)=>s+c.pay,0),totalMins:preview.reduce((s,c)=>s+c.duration,0)});setImportStep("preview");}catch(e){setImportError("Error: "+e.message);}}
   function confirmImport(){const existing=new Set(calls.map(c=>`${c.customerId}-${c.date}-${c.callStart}`));const newCalls=importPreview.filter(c=>!existing.has(`${c.customerId}-${c.date}-${c.callStart}`));setCalls(prev=>[...prev,...newCalls]);setImportStep("done");showToast(`✅ ${newCalls.length} importadas`);}
   function resetImport(){setImportStep("idle");setImportPreview([]);setImportError("");setImportFileName("");setImportStats(null);if(fileRef.current)fileRef.current.value="";}
+  function getExportRows(){return calls.map(c=>({"Project ID":c.customerId,"Service Date":c.date,"Start Time":c.callStart,"Quantity":c.duration,"Earnings":"$"+c.pay.toFixed(2),"Adjustment":"$0.00","Service Line":c.serviceType||"","Surge":c.surge?"Yes":"No","Billable":c.billable,"Dropped":c.dropped}));}
+  function exportCSV(){const rows=getExportRows();if(!rows.length){showToast("⚠️ Sin llamadas para exportar");return;}const headers=Object.keys(rows[0]);const csv=[headers.join(","),...rows.map(r=>headers.map(h=>'"'+String(r[h]).replace(/"/g,'""')+'"').join(","))].join("\r\n");const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`call-tracker-${today()}.csv`;a.click();URL.revokeObjectURL(url);showToast("✅ CSV exportado");}
+  function exportXLSX(){const XLSX=window.XLSX;if(!XLSX){showToast("⚠️ Librería no disponible");return;}const rows=getExportRows();if(!rows.length){showToast("⚠️ Sin llamadas para exportar");return;}const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Llamadas");XLSX.writeFile(wb,`call-tracker-${today()}.xlsx`);showToast("✅ Excel exportado");}
 
   const todayStr=today();
   const billableCalls=calls.filter(c=>c.billable==="Yes");
@@ -444,7 +447,24 @@ export default function App(){
           <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>IMPORTAR</div>
           <div style={{fontSize:20,fontWeight:700,color:"var(--text)",marginBottom:20}}>Cargar llamadas</div>
           {importError&&<div style={{background:"#1a0505",border:"1px solid var(--red)44",borderRadius:8,padding:"10px 12px",color:"var(--red)",fontSize:12,marginBottom:12}}>{importError}</div>}
-          {importStep==="idle"&&<button onClick={()=>fileRef.current.click()} style={{width:"100%",background:"var(--bg)",border:"2px dashed var(--border2)",borderRadius:12,color:"var(--text2)",padding:"28px",fontWeight:600,cursor:"pointer",fontSize:13,textAlign:"center"}}><div style={{fontSize:28,marginBottom:8}}>📂</div><div>Seleccionar CSV o Excel</div><div style={{fontSize:11,color:"var(--text3)",marginTop:4}}>Arrastra o haz clic</div></button>}
+          {importStep==="idle"&&(
+            <div>
+              <button onClick={()=>fileRef.current.click()} style={{width:"100%",background:"var(--bg)",border:"2px dashed var(--border2)",borderRadius:12,color:"var(--text2)",padding:"28px",fontWeight:600,cursor:"pointer",fontSize:13,textAlign:"center",marginBottom:16}}><div style={{fontSize:28,marginBottom:8}}>📂</div><div>Seleccionar CSV o Excel</div><div style={{fontSize:11,color:"var(--text3)",marginTop:4}}>Arrastra o haz clic</div></button>
+              {calls.length>0&&(
+                <div>
+                  <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:10}}>EXPORTAR · {calls.length} llamadas</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    <button className="btn-primary" onClick={exportCSV} style={{background:"var(--bg)",border:"1px solid var(--cyan)44",borderRadius:10,color:"var(--cyan)",padding:"12px 8px",fontWeight:700,cursor:"pointer",fontSize:13,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                      <span style={{fontSize:20}}>📄</span><span>CSV</span>
+                    </button>
+                    <button className="btn-primary" onClick={exportXLSX} style={{background:"var(--bg)",border:"1px solid var(--green)44",borderRadius:10,color:"var(--green)",padding:"12px 8px",fontWeight:700,cursor:"pointer",fontSize:13,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                      <span style={{fontSize:20}}>📊</span><span>Excel</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           {importStep==="preview"&&importStats&&(
             <div>
               <div style={{background:"var(--bg)",borderRadius:10,padding:14,marginBottom:14}}>
