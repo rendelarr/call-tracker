@@ -1,130 +1,124 @@
 # 📞 Call Tracker
 
-Aplicación web para registrar, analizar y optimizar tu productividad como agente de llamadas telefónicas. Incluye gamificación, pomodoro, ciclos de pago y análisis de rendimiento.
+Aplicación web para registrar y analizar llamadas telefónicas como agente de call center. Pensada para uso personal: seguimiento de ingresos diarios, ritmo de trabajo, historial por ciclos de pago y proyecciones.
+
+**Live:** [call-tracker.vercel.app](https://call-tracker.vercel.app) · **Repo:** [rendelarr/call-tracker](https://github.com/rendelarr/call-tracker)
 
 ---
 
-## ¿Qué hace?
+## Stack
 
-- **Registra llamadas** manualmente, pegando texto copiado, o cronometrando en vivo
-- **Calcula tus ingresos** según la tarifa activa (Normal / Bronce / Plata / Gold)
-- **Visualiza tu progreso** diario, semanal y por ciclo de pago
-- **Te motiva** con misiones diarias, logros, niveles de XP y un score del día
-- **Te mantiene enfocado** con un timer Pomodoro y alarma de inactividad
-
----
-
-## Pantallas
-
-| Tab | Qué muestra |
-|-----|-------------|
-| **Hoy** | Ingresos del día, barra de meta, lista de llamadas, acciones rápidas |
-| **Stats** | Score, ritmo, heatmap por hora, racha, nivel XP, misiones y logros |
-| **Semana** | Barras comparativas de minutos e ingresos de los últimos 7 días |
-| **Ciclo** | Progreso del ciclo de pago actual y proyección de ingresos |
-| **Focus** | Pomodoro configurable + alarma de inactividad |
-| **Historial** | Todas las llamadas agrupadas por fecha |
+- **React 18** (Create React App)
+- **localStorage** — persistencia local, sin backend
+- **SheetJS (xlsx)** — importación y exportación de archivos Excel/CSV
+- Desplegado en **Vercel** (auto-deploy desde `main`)
 
 ---
 
-## Cómo agregar llamadas
+## Características
 
-### Opción 1 — En vivo
-Pulsa **▶ En vivo** al iniciar la llamada. Al terminar pulsa **⏹ Detener** y se abre un formulario con el tiempo ya calculado.
+### Registro de llamadas
+- **En vivo** — temporizador que corre mientras dura la llamada; al detener abre el formulario pre-llenado con inicio, fin y duración calculados
+- **Manual** — formulario con campos de hora inicio, hora fin y minutos interconectados (cualquier cambio en uno recalcula los otros)
+- **Pegar texto** — parsea una línea copiada directamente del sistema de la empresa e interpreta los campos automáticamente
 
-### Opción 2 — Manual
-Pulsa **✏️ Manual** e ingresa hora de inicio, hora de fin (o minutos directamente) e ID del cliente. El pago se calcula automáticamente.
-
-### Opción 3 — Pegar texto
-Pulsa **📋 Pegar**, selecciona tu tarifa activa y pega la fila copiada directamente de tu plataforma. La app interpreta el texto automáticamente.
-
-### Opción 4 — Importar CSV/Excel
-Pulsa **⚙** en el header y sube tu archivo. Detecta automáticamente las columnas y evita duplicados.
-
----
-
-## Botones del header
-
-| Botón | Función |
-|-------|---------|
-| **◎ Meta** | Configura tu meta de ingresos diaria |
-| **⚙** | Importa llamadas desde CSV o Excel |
-
----
-
-## Tarifas
-
-| Nivel | $/min |
-|-------|-------|
+### Tarifas
+| Tier | $/min |
+|------|-------|
 | Normal | $0.12 |
 | Bronce | $0.13 |
-| Plata | $0.14 |
-| Gold | $0.15 |
+| Plata  | $0.14 |
+| Gold   | $0.15 |
 
-Las llamadas marcadas como **Surge** en los comentarios del CSV se identifican automáticamente.
+La tarifa activa se selecciona antes de cada registro y afecta el cálculo de pago automático.
+
+### Vistas (tabs)
+
+| Tab | Descripción |
+|-----|-------------|
+| **Hoy** | Ingresos del día, progreso hacia la meta, lista de llamadas, contador de costo idle |
+| **Stats** | Score del día (0–100), comparativa vs ayer y semana pasada, ritmo entre llamadas, heatmap de actividad por hora, racha de días activos |
+| **Semana** | Minutos e ingresos de los últimos 7 días con barras comparativas |
+| **Ciclo** | Estado del ciclo de pago actual y listado histórico de todos los ciclos |
+| **Historial** | Todas las llamadas agrupadas por fecha, colapsables, con edición y borrado individual |
+
+### Meta diaria
+Meta de ingresos configurable (default $30). Muestra porcentaje de avance, minutos restantes para alcanzarla y proyección del ciclo actual.
+
+### Contador idle
+Muestra cuánto dinero teórico se ha "dejado de ganar" desde la última llamada registrada. Se resetea automáticamente al agregar una nueva llamada.
+
+### Importar / Exportar
+- Importa **CSV o Excel** con detección automática de columnas (fecha, hora, duración, billable, etc.)
+- Deduplica por `customerId + fecha + hora inicio`
+- Exporta a **CSV** o **Excel** con el formato estándar de la empresa
+
+### Ciclos de pago
+27 ciclos pre-cargados del 13/12/2025 al 25/12/2026 (quincenal). Muestra días restantes del ciclo, fecha de cobro y proyección de ingresos al ritmo actual.
 
 ---
 
-## Ciclos de pago
+## Estructura del proyecto
 
-Los ciclos van de 2026-03-07 hasta 2026-12-30, con frecuencia quincenal. La app detecta el ciclo actual automáticamente y muestra días restantes, total acumulado y proyección.
+```
+call-tracker/
+├── public/
+├── src/
+│   └── App.jsx        # Toda la app en un solo archivo
+├── package.json
+└── README.md
+```
 
----
+Todo el código vive en `src/App.jsx`. La estructura interna está organizada en secciones:
 
-## Gamificación
-
-- **Score del día** (0–100): combina cumplimiento de meta (40pts), ritmo entre llamadas (30pts), racha de días (20pts) y actividad (10pts)
-- **8 misiones diarias** aleatorias que rotan cada día
-- **12 logros** permanentes desbloqueables
-- **6 niveles** de XP: Novato → Aprendiz → Trabajador → Profesional → Experto → Élite
-
----
-
-## Tecnologías
-
-- React 18 (Create React App)
-- Vanilla CSS con variables (sin librerías de UI)
-- localStorage para persistencia de datos
-- SheetJS (xlsx) para importación de archivos Excel
-- Desplegado en Vercel
+```
+Constants → Global styles → Style utilities → Date/time utils →
+Time helpers → Data helpers → Import helpers →
+TimePicker → Modal → UI components → App()
+  ├── State
+  ├── Effects
+  ├── Derived data
+  ├── Event handlers
+  └── Render (tabs)
+```
 
 ---
 
 ## Instalación local
 
 ```bash
-# Clonar el repo
 git clone https://github.com/rendelarr/call-tracker.git
 cd call-tracker
-
-# Instalar dependencias
 npm install
-
-# Iniciar servidor de desarrollo
 npm start
 ```
 
-Requiere Node.js 16+.
+La app corre en `http://localhost:3000`.
 
 ---
 
-## Deploy en Vercel
+## Deploy
 
-1. Conecta el repositorio en [vercel.com](https://vercel.com)
-2. En **Settings → General → Root Directory** establece `call-tracker`
-3. Framework: **Create React App** (se detecta automáticamente)
-4. Deploy
+Vercel detecta automáticamente CRA. Cualquier push a `main` dispara un deploy.
 
-Cada `git push` a `main` dispara un redeploy automático.
+```bash
+git add src/App.jsx
+git commit -m "descripción"
+git push origin main
+```
 
 ---
 
 ## Datos y privacidad
 
-Todos los datos se almacenan **únicamente en el navegador** (`localStorage`). No se envía ningún dato a servidores externos. Limpiar el caché del navegador borra los datos.
+Todos los datos se guardan exclusivamente en `localStorage` del navegador bajo las claves `call_tracker_data` y `call_tracker_config`. No hay servidor, no hay base de datos, no se envía nada a ningún lado.
+
+> ⚠️ Limpiar el caché o usar modo incógnito borra los datos. Para no perderlos, exporta a Excel periódicamente.
 
 ---
 
-## Repositorio
+## Roadmap
 
-[github.com/rendelarr/call-tracker](https://github.com/rendelarr/call-tracker)
+- [ ] Migración a Firebase (Auth + Firestore) para persistencia entre dispositivos
+- [ ] Soporte multi-usuario
+- [ ] Contador de minutos faltantes para meta diaria con ETA en tiempo real
