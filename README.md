@@ -2,7 +2,7 @@
 
 Aplicación web para registrar y analizar llamadas telefónicas como agente de call center. Pensada para uso personal: seguimiento de ingresos diarios, ritmo de trabajo, historial por ciclos de pago y proyecciones.
 
-**Live:** [call-tracker.vercel.app]([https://call-tracker.vercel.app](https://call-tracker-git-main-rendelarr.vercel.app/)) · **Repo:** [rendelarr/call-tracker](https://github.com/rendelarr/call-tracker)
+**Live:** [call-tracker.vercel.app](https://call-tracker.vercel.app](https://call-tracker-git-main-rendelarr.vercel.app/)) · **Repo:** [rendelarr/call-tracker](https://github.com/rendelarr/call-tracker)
 
 ---
 
