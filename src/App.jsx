@@ -1,5 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 
+const STORAGE_KEY = "call_tracker_data";
+const STORAGE_CONFIG = "call_tracker_config";
+const defaultConfig = { dailyMoneyGoal: 30 };
+
 const fontLink = document.createElement("link");
 fontLink.rel = "stylesheet";
 fontLink.href = "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap";
@@ -8,8 +12,8 @@ document.head.appendChild(fontLink);
 const globalStyle = document.createElement("style");
 globalStyle.textContent = `
   :root {
-    --bg: #13181f; --bg2: #1a2130; --bg3: #1f2a3a;
-    --border: #2a3a4e; --border2: #334458;
+    --bg: #080c10; --bg2: #0d1117; --bg3: #131922;
+    --border: #1e2a38; --border2: #243044;
     --cyan: #00e5cc; --cyan2: #00b8a3;
     --green: #39ff7e; --green2: #22c55e;
     --amber: #ffb800; --red: #ff4d6d;
@@ -41,9 +45,6 @@ globalStyle.textContent = `
   ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
 `;
 document.head.appendChild(globalStyle);
-
-const STORAGE_KEY = "call_tracker_data";
-const STORAGE_CONFIG = "call_tracker_config";
 
 const RATES = [
   { value: 0.12, label: "Normal", color: "#7a8a9a", icon: "○" },
@@ -243,8 +244,6 @@ const StatBox=({label,value,color="var(--cyan)",sub})=>(
   </div>
 );
 
-const defaultConfig = { dailyMoneyGoal: 30 };
-
 export default function App(){
   const[calls,setCalls]=useState([]);
   const[config,setConfig]=useState(defaultConfig);
@@ -253,6 +252,7 @@ export default function App(){
   const[parseError,setParseError]=useState("");
   const[tab,setTab]=useState("home");
   const[showConfig,setShowConfig]=useState(false);
+  const[tempConfig,setTempConfig]=useState(defaultConfig);
   const[showGoal,setShowGoal]=useState(false);
   const[tempGoal,setTempGoal]=useState(defaultConfig.dailyMoneyGoal);
   const[toast,setToast]=useState("");
@@ -287,13 +287,8 @@ export default function App(){
   const[importStats,setImportStats]=useState(null);
   const fileRef=useRef();
 
-  // ── localStorage (funciona en Vercel) ──
-  useEffect(()=>{
-    try{const d=localStorage.getItem(STORAGE_KEY);if(d)setCalls(JSON.parse(d));}catch{}
-    try{const c=localStorage.getItem(STORAGE_CONFIG);if(c){const cfg=JSON.parse(c);setConfig(cfg);setTempGoal(cfg.dailyMoneyGoal||30);}}catch{}
-  },[]);
+  useEffect(()=>{try{const d=localStorage.getItem(STORAGE_KEY);if(d)setCalls(JSON.parse(d));const c=localStorage.getItem(STORAGE_CONFIG);if(c){const cfg=JSON.parse(c);setConfig(cfg);setTempConfig(cfg);setTempGoal(cfg.dailyMoneyGoal||30);}}catch{}},[]);
   useEffect(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(calls));}catch{}},[calls]);
-
   useEffect(()=>{if(!window.XLSX){const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";document.head.appendChild(s);}},[]);
   useEffect(()=>{if(liveActive){liveRef.current=setInterval(()=>setLiveSeconds(s=>s+1),1000);}else{clearInterval(liveRef.current);}return()=>clearInterval(liveRef.current);},[liveActive]);
   useEffect(()=>{
@@ -348,9 +343,10 @@ export default function App(){
   const heatmap=Array(24).fill(0);
   billableCalls.forEach(c=>{const h=parseHour(c.callStart);if(h!==null)heatmap[h]+=c.duration;});
   const maxHeat=Math.max(...heatmap,1);
-  const sortedToday=[...todayCalls].sort((a,b)=>(parseHour(a.callStart)||0)-(parseHour(b.callStart)||0));
+  const toMinsOfDay=t=>{if(!t||t==="N/A")return null;const m=t.match(/(\d{1,2}):(\d{2})\s?([AP]M)/i);if(!m)return null;let h=parseInt(m[1]);const ap=m[3].toUpperCase();if(ap==="PM"&&h!==12)h+=12;if(ap==="AM"&&h===12)h=0;return h*60+parseInt(m[2]);};
+  const sortedToday=[...todayCalls].sort((a,b)=>(toMinsOfDay(a.callStart)||0)-(toMinsOfDay(b.callStart)||0));
   let avgGap=null;
-  if(sortedToday.length>1){const gaps=[];for(let i=1;i<sortedToday.length;i++){const hA=parseHour(sortedToday[i-1].callStart),hB=parseHour(sortedToday[i].callStart);if(hA!==null&&hB!==null&&hB>hA)gaps.push((hB-hA)*60-sortedToday[i-1].duration);}if(gaps.length)avgGap=Math.round(gaps.filter(g=>g>=0).reduce((s,g)=>s+g,0)/Math.max(gaps.filter(g=>g>=0).length,1));}
+  if(sortedToday.length>1){const gaps=[];for(let i=1;i<sortedToday.length;i++){const mA=toMinsOfDay(sortedToday[i-1].callStart),mB=toMinsOfDay(sortedToday[i].callStart);if(mA!==null&&mB!==null&&mB>mA)gaps.push((mB-mA)-sortedToday[i-1].duration);}if(gaps.length)avgGap=Math.round(gaps.filter(g=>g>=0).reduce((s,g)=>s+g,0)/Math.max(gaps.filter(g=>g>=0).length,1));}
   let projection=null;
   if(currentCycle){const stats=getCycleStats(currentCycle);const s=toDate(currentCycle.start),e=toDate(currentCycle.end);const totalDays=Math.round((e-s)/86400000)+1;const daysPassed=totalDays-Math.max(daysUntil(currentCycle.end),0);if(daysPassed>0)projection=Math.round((stats.money/daysPassed*totalDays)*100)/100;}
   const scoreGoal=Math.min(40,moneyPct*0.4);
@@ -373,20 +369,6 @@ export default function App(){
   function handleParse(){setParseError("");const r=parseCallText(rawText);if(!r){setParseError("No pude interpretar el texto.");setParsed(null);return;}setParsed(r);}
   function handleAdd(){if(!parsed)return;if(parsed.billable!=="Yes"){showToast("⚠️ No billable.");setParsed(null);setRawText("");return;}setCalls(prev=>[...prev,parsed]);setParsed(null);setRawText("");showToast("✅ Llamada agregada");}
   function handleDelete(id){setCalls(prev=>prev.filter(c=>c.id!==id));}
-
-  const RateButtons = ({ onSelect }) => (
-    <div style={{marginBottom:14}}>
-      <label style={CC.label}>Tarifa activa</label>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-        {RATES.map(r=>{const active=activeRate===r.value;return(
-          <button key={r.value} className="rate-btn" onClick={()=>onSelect(r.value)} style={{padding:"8px 10px",borderRadius:8,border:"none",cursor:"pointer",background:active?`${r.color}22`:"var(--bg)",outline:active?`1px solid ${r.color}88`:"1px solid var(--border)",display:"flex",alignItems:"center",gap:8}}>
-            <span style={{color:r.color,fontSize:14}}>{r.icon}</span>
-            <div style={{textAlign:"left"}}><div style={{fontWeight:800,fontSize:12,color:active?r.color:"var(--text)",fontFamily:"var(--mono)"}}>${r.value}/min</div><div style={{fontSize:10,color:"var(--text3)"}}>{r.label}</div></div>
-          </button>
-        );})}
-      </div>
-    </div>
-  );
 
   const TABS=[
     {id:"home", icon:"◉",label:"Hoy"},
@@ -425,6 +407,7 @@ export default function App(){
         </div>
       )}
 
+      {/* HEADER */}
       <div style={{padding:"20px 20px 0",display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:liveActive||alarmFired?56:0}}>
         <div>
           <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1.5,fontFamily:"var(--mono)"}}>CALL TRACKER</div>
@@ -438,6 +421,7 @@ export default function App(){
         </div>
       </div>
 
+      {/* MODALS */}
       {showGoal&&(
         <Modal onClose={()=>setShowGoal(false)}>
           <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>META DIARIA</div>
@@ -449,13 +433,7 @@ export default function App(){
               style={{...CC.input,paddingLeft:32,fontSize:24,fontFamily:"var(--mono)",fontWeight:800,color:"var(--amber)",border:"1px solid var(--amber)44"}}/>
           </div>
           <div style={{display:"flex",gap:8}}>
-            <button className="btn-primary" onClick={()=>{
-              const val=parseFloat(tempGoal)||30;
-              const nc={...config,dailyMoneyGoal:val};
-              setConfig(nc);
-              try{localStorage.setItem(STORAGE_CONFIG,JSON.stringify(nc));}catch{}
-              setShowGoal(false);showToast("🎯 Meta: $"+val.toFixed(2));
-            }} style={{flex:1,background:"var(--amber)",border:"none",borderRadius:10,color:"#000",padding:"12px",fontWeight:800,cursor:"pointer",fontSize:14}}>Guardar</button>
+            <button className="btn-primary" onClick={()=>{const val=parseFloat(tempGoal)||30;const nc={...config,dailyMoneyGoal:val};setConfig(nc);setTempConfig(nc);try{localStorage.setItem(STORAGE_CONFIG,JSON.stringify(nc));}catch{}setShowGoal(false);showToast("🎯 Meta: $"+val.toFixed(2));}} style={{flex:1,background:"var(--amber)",border:"none",borderRadius:10,color:"#000",padding:"12px",fontWeight:800,cursor:"pointer",fontSize:14}}>Guardar</button>
             <button onClick={()=>setShowGoal(false)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"12px 16px",cursor:"pointer",fontSize:14}}>✕</button>
           </div>
         </Modal>
@@ -491,8 +469,7 @@ export default function App(){
       {showManual&&(
         <Modal onClose={()=>{setShowManual(false);setLiveStart(null);}}>
           <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>NUEVA LLAMADA</div>
-          <div style={{fontSize:18,fontWeight:700,color:"var(--text)",marginBottom:14}}>{liveStart?"Guardar llamada grabada":"Agregar manualmente"}</div>
-          <RateButtons onSelect={r=>{setActiveRate(r);setManualForm(p=>({...p,pay:p.duration?String(parseFloat((parseInt(p.duration)*r).toFixed(2))):p.pay}));}}/>
+          <div style={{fontSize:18,fontWeight:700,color:"var(--text)",marginBottom:18}}>{liveStart?"Guardar llamada grabada":"Agregar manualmente"}</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
             {[["ID Cliente","customerId","text","Opcional"],["Hora inicio","startTime","text","08:00 AM"],["Hora fin","endTime","text","08:15 AM"],["Minutos","duration","number","15"]].map(([label,field,type,ph])=>(
               <div key={field}>
@@ -516,7 +493,17 @@ export default function App(){
         <Modal onClose={()=>{setShowPaste(false);setParsed(null);setRawText("");}}>
           <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>PEGAR DATOS</div>
           <div style={{fontSize:18,fontWeight:700,color:"var(--text)",marginBottom:16}}>Pegar llamada</div>
-          <RateButtons onSelect={r=>setActiveRate(r)}/>
+          <div style={{marginBottom:14}}>
+            <label style={CC.label}>Tarifa activa</label>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+              {RATES.map(r=>{const active=activeRate===r.value;return(
+                <button key={r.value} className="rate-btn" onClick={()=>setActiveRate(r.value)} style={{padding:"8px 10px",borderRadius:8,border:"none",cursor:"pointer",background:active?`${r.color}22`:"var(--bg)",outline:active?`1px solid ${r.color}88`:"1px solid var(--border)",display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{color:r.color,fontSize:14}}>{r.icon}</span>
+                  <div style={{textAlign:"left"}}><div style={{fontWeight:800,fontSize:12,color:active?r.color:"var(--text)",fontFamily:"var(--mono)"}}>${r.value}/min</div><div style={{fontSize:10,color:"var(--text3)"}}>{r.label}</div></div>
+                </button>
+              );})}
+            </div>
+          </div>
           <label style={CC.label}>Datos de la llamada</label>
           <textarea value={rawText} onChange={e=>setRawText(e.target.value)} placeholder="191403/09/202608:17 AM3YesNo$0.36" style={{...CC.input,height:70,resize:"vertical",fontSize:12,fontFamily:"var(--mono)",marginBottom:8}}/>
           {parseError&&<div style={{color:"var(--red)",fontSize:12,marginBottom:8}}>{parseError}</div>}
@@ -541,8 +528,7 @@ export default function App(){
       {editingId&&(
         <Modal onClose={()=>setEditingId(null)}>
           <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>EDITAR LLAMADA</div>
-          <div style={{fontSize:18,fontWeight:700,color:"var(--text)",marginBottom:14}}>Editar llamada</div>
-          <RateButtons onSelect={r=>{setActiveRate(r);setEditForm(p=>({...p,pay:p.duration?String(parseFloat((parseInt(p.duration)*r).toFixed(2))):p.pay}));}}/>
+          <div style={{fontSize:18,fontWeight:700,color:"var(--text)",marginBottom:18}}>Editar llamada</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
             {[["ID","customerId","text"],["Hora inicio","callStart","text"],["Minutos","duration","number"]].map(([label,field,type])=>(
               <div key={field}><label style={CC.label}>{label}</label><input type={type} value={editForm[field]} onChange={e=>handleEditChange(field,e.target.value)} style={{...CC.input,fontSize:13}}/></div>
@@ -559,8 +545,10 @@ export default function App(){
         </Modal>
       )}
 
+      {/* PAGE CONTENT */}
       <div style={{padding:"16px 20px 0"}}>
 
+        {/* HOME */}
         {tab==="home"&&(
           <div>
             <div style={{...CC.cardGlow("#00e5cc"),padding:24,marginBottom:12}} className="card">
@@ -580,18 +568,20 @@ export default function App(){
                 <div style={{width:`${moneyPct}%`,height:"100%",background:"linear-gradient(90deg,var(--cyan),var(--green))",borderRadius:99,transition:"width .6s ease",boxShadow:moneyPct>0?"0 0 8px var(--cyan)66":"none"}}/>
               </div>
             </div>
+
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
               {[
-                {label:liveActive?"Detener":"En vivo",icon:liveActive?"⏹":"▶",active:liveActive,color:"var(--green)",action:()=>liveActive?stopLiveCall():startLiveCall()},
-                {label:"Manual",icon:"✏️",active:false,color:"var(--cyan)",action:()=>setShowManual(true)},
-                {label:"Pegar",icon:"📋",active:false,color:"var(--purple)",action:()=>setShowPaste(true)},
+                {label:liveActive?"⏹ Detener":"▶ En vivo",icon:liveActive?"⏹":"▶",active:liveActive,color:"var(--green)",action:()=>liveActive?stopLiveCall():startLiveCall()},
+                {label:"✏️ Manual",icon:"✏️",active:false,color:"var(--cyan)",action:()=>setShowManual(true)},
+                {label:"📋 Pegar",icon:"📋",active:false,color:"var(--purple)",action:()=>setShowPaste(true)},
               ].map(btn=>(
                 <button key={btn.label} className="action-btn" onClick={btn.action} style={{padding:"16px 8px",borderRadius:14,border:`1px solid ${btn.active?btn.color:"var(--border)"}`,cursor:"pointer",background:btn.active?`${btn.color}11`:"var(--bg2)",color:btn.active?btn.color:"var(--text)",fontWeight:700,fontSize:12,display:"flex",flexDirection:"column",alignItems:"center",gap:6,boxShadow:btn.active?`0 0 14px ${btn.color}22`:"none",transition:"all .15s"}}>
                   <span style={{fontSize:20}}>{btn.icon}</span>
-                  <span style={{fontSize:10}}>{btn.label}</span>
+                  <span style={{fontSize:10}}>{btn.active?"Detener":"En vivo"===btn.label.replace("▶ ","").replace("⏹ ","")?btn.label.replace("▶ ","").replace("⏹ ",""):btn.label.replace("✏️ ","").replace("📋 ","")}</span>
                 </button>
               ))}
             </div>
+
             <div style={{...CC.card,padding:20}} className="card">
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
                 <div style={{fontWeight:700,color:"var(--text)",fontSize:14}}>Llamadas de hoy</div>
@@ -619,6 +609,7 @@ export default function App(){
           </div>
         )}
 
+        {/* PERFORMANCE */}
         {tab==="perf"&&(
           <div>
             <div style={{...CC.cardGlow(scoreColor),padding:24,marginBottom:12,textAlign:"center"}} className="card">
@@ -637,6 +628,7 @@ export default function App(){
                 ))}
               </div>
             </div>
+
             <div style={{...CC.cardGlow("var(--red)"),padding:20,marginBottom:12}} className="card">
               <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>INACTIVIDAD</div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -644,6 +636,7 @@ export default function App(){
                 <div style={{fontSize:32,opacity:.25}}>💸</div>
               </div>
             </div>
+
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
               {[["vs Ayer",todayMoney,yestMoney,weekMins,yestMins],["vs Sem. pasada",weekMoney,lwMoney,weekMins,lwMins]].map(([label,curM,prevM,curMin,prevMin])=>{
                 const diffM=curM-prevM,diffMin=curMin-prevMin,up=diffM>=0;
@@ -657,12 +650,19 @@ export default function App(){
                 );
               })}
             </div>
+
             {currentCycle&&<div style={{...CC.cardGlow("var(--amber)"),padding:20,marginBottom:12}} className="card"><div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>PROYECCIÓN DEL CICLO</div><div style={{fontSize:36,fontWeight:900,fontFamily:"var(--mono)",color:"var(--amber)"}}>${projection!==null?projection.toFixed(2):"--"}</div><div style={{fontSize:11,color:"var(--text2)",marginTop:2}}>A este ritmo al final del ciclo</div></div>}
+
             <div style={{...CC.card,padding:20,marginBottom:12}} className="card">
               <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:12}}>RITMO DE HOY</div>
-              {avgGap===null?<div style={{color:"var(--text3)",fontSize:13}}>Necesitas al menos 2 llamadas</div>:(()=>{const c=avgGap<=5?"var(--green)":avgGap<=15?"var(--amber)":"var(--red)";const l=avgGap<=5?"Excelente 🔥":avgGap<=15?"Normal ⚡":"Lento 🐢";return(<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:36,fontWeight:900,fontFamily:"var(--mono)",color:c}}>{avgGap}<span style={{fontSize:14,marginLeft:4,color:"var(--text2)"}}>min</span></div><div style={{fontSize:11,color:c,marginTop:2}}>{l}</div></div><div style={{fontSize:11,color:"var(--text3)"}}>entre llamadas</div></div>);})()}
+              {avgGap===null
+                ?<div style={{color:"var(--text3)",fontSize:13}}>Necesitas al menos 2 llamadas</div>
+                :(()=>{const c=avgGap<=5?"var(--green)":avgGap<=15?"var(--amber)":"var(--red)";const l=avgGap<=5?"Excelente 🔥":avgGap<=15?"Normal ⚡":"Lento 🐢";return(<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:36,fontWeight:900,fontFamily:"var(--mono)",color:c}}>{avgGap}<span style={{fontSize:14,marginLeft:4,color:"var(--text2)"}}>min</span></div><div style={{fontSize:11,color:c,marginTop:2}}>{l}</div></div><div style={{fontSize:11,color:"var(--text3)"}}>entre llamadas</div></div>);})()
+              }
             </div>
+
             <HeatmapCard heatmap={heatmap} maxHeat={maxHeat}/>
+
             <div style={{...CC.card,padding:20,marginBottom:12}} className="card">
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
                 <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>RACHA</div>
@@ -672,6 +672,7 @@ export default function App(){
                 {last30.map(d=><div key={d} title={d} style={{aspectRatio:"1",borderRadius:4,background:byDate[d]?"var(--cyan)":d===todayStr?"var(--border2)":"var(--bg)",border:d===todayStr?"1px solid var(--border2)":"none"}}/>)}
               </div>
             </div>
+
             <div style={{...CC.cardGlow(currentLevel.color),padding:20,marginBottom:12}} className="card">
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
                 <div><div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>NIVEL {currentLevel.level}</div><div style={{fontSize:22,fontWeight:800,color:currentLevel.color,marginTop:2}}>{currentLevel.label}</div></div>
@@ -682,6 +683,7 @@ export default function App(){
               </div>
               {nextLevel&&<div style={{fontSize:10,color:"var(--text3)",marginTop:6,fontFamily:"var(--mono)"}}>{xpInLevel}/{xpNeeded} XP → nivel {currentLevel.level+1}</div>}
             </div>
+
             <div style={{...CC.card,padding:20}} className="card">
               <div style={{display:"flex",gap:8,marginBottom:16}}>
                 <Pill active={achTab==="daily"} onClick={()=>setAchTab("daily")}>☀️ Misiones</Pill>
@@ -724,6 +726,7 @@ export default function App(){
           </div>
         )}
 
+        {/* WEEK */}
         {tab==="week"&&(
           <div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
@@ -747,6 +750,7 @@ export default function App(){
           </div>
         )}
 
+        {/* CYCLE */}
         {tab==="cycle"&&(
           <div>
             <div style={{display:"flex",gap:8,marginBottom:16}}>
@@ -787,10 +791,11 @@ export default function App(){
                   <div style={{textAlign:"right"}}><div style={{fontWeight:800,fontFamily:"var(--mono)",color:"var(--green)",fontSize:14}}>${stats.money.toFixed(2)}</div><div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)"}}>{stats.mins}m · {stats.count}</div></div>
                 </div>
               </div>
-            );})}
+            );}
           </div>
         )}
 
+        {/* FOCUS */}
         {tab==="focus"&&(
           <div>
             <div style={{...CC.card,padding:20,marginBottom:12}} className="card">
@@ -803,6 +808,7 @@ export default function App(){
               </div>
               {alarmEnabled&&<div style={{marginTop:10,fontSize:11,color:"var(--green)",fontFamily:"var(--mono)"}}>● activa · {alarmMins}m</div>}
             </div>
+
             <div style={{...CC.card,padding:20}} className="card">
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
                 <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>POMODORO</div>
@@ -858,6 +864,7 @@ export default function App(){
           </div>
         )}
 
+        {/* HISTORY */}
         {tab==="history"&&(
           <div>
             {sortedDates.length===0&&<div style={{textAlign:"center",padding:"48px 0",color:"var(--text3)"}}><div style={{fontSize:32,marginBottom:8}}>🗂</div><div>Sin historial aún</div></div>}
@@ -897,6 +904,7 @@ export default function App(){
 
       </div>
 
+      {/* BOTTOM NAV */}
       <div style={{position:"fixed",bottom:0,left:0,right:0,background:"var(--bg2)",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"space-around",padding:"8px 0 14px",zIndex:100}}>
         {TABS.map(t=>{
           const active=tab===t.id;
