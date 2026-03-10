@@ -161,6 +161,48 @@ const CC={
   label:{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:6,display:"block"},
 };
 
+function parseTimeStr(str){
+  if(!str)return{h:"8",m:"00",ap:"AM"};
+  const match=str.match(/(\d{1,2}):(\d{2})\s?(AM|PM)/i);
+  if(!match)return{h:"8",m:"00",ap:"AM"};
+  return{h:String(parseInt(match[1])),m:match[2],ap:match[3].toUpperCase()};
+}
+function buildTimeStr({h,m,ap}){return`${h}:${m} ${ap}`;}
+
+function TimePicker({value,onChange,label}){
+  const {h,m,ap}=parseTimeStr(value);
+  const sel={
+    background:"var(--bg)",border:"1px solid var(--border2)",borderRadius:8,
+    color:"var(--text)",fontFamily:"var(--mono)",fontWeight:700,fontSize:15,
+    padding:"10px 4px",cursor:"pointer",appearance:"none",WebkitAppearance:"none",
+    textAlign:"center",width:"100%",outline:"none",
+  };
+  const hours=Array.from({length:12},(_,i)=>String(i+1));
+  const mins=Array.from({length:60},(_,i)=>String(i).padStart(2,"0"));
+  function update(newH,newM,newAp){onChange(buildTimeStr({h:newH,m:newM,ap:newAp}));}
+  return(
+    <div>
+      {label&&<label style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,display:"block",marginBottom:6}}>{label}</label>}
+      <div style={{display:"grid",gridTemplateColumns:"2fr 2fr 1.4fr",gap:5}}>
+        <select value={h} onChange={e=>update(e.target.value,m,ap)} style={sel}>
+          {hours.map(hh=><option key={hh} value={hh}>{hh}</option>)}
+        </select>
+        <select value={m} onChange={e=>update(h,e.target.value,ap)} style={sel}>
+          {mins.map(mm=><option key={mm} value={mm}>{mm}</option>)}
+        </select>
+        <button onClick={()=>update(h,m,ap==="AM"?"PM":"AM")}
+          style={{background:ap==="AM"?"var(--cyan)22":"var(--amber)22",
+            border:`1px solid ${ap==="AM"?"var(--cyan)":"var(--amber)"}`,
+            borderRadius:8,color:ap==="AM"?"var(--cyan)":"var(--amber)",
+            fontWeight:800,fontSize:12,fontFamily:"var(--mono)",
+            padding:"10px 2px",cursor:"pointer",width:"100%"}}>
+          {ap}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Modal({onClose,children}){
   return(
     <div onClick={onClose} style={{position:"fixed",inset:0,background:"#000000cc",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
@@ -238,6 +280,9 @@ const StatBox=({label,value,color="var(--cyan)",sub})=>(
   </div>
 );
 
+function timeToMins(t){if(!t)return null;const m=t.match(/(\d{1,2}):(\d{2})\s?([AP]M)/i);if(!m)return null;let h=parseInt(m[1]);const ap=m[3].toUpperCase();if(ap==="PM"&&h!==12)h+=12;if(ap==="AM"&&h===12)h=0;return h*60+parseInt(m[2]);}
+function minsToTime(mins){const h24=Math.floor(mins/60)%24;const mm=mins%60;const ap=h24>=12?"PM":"AM";let h12=h24%12;if(h12===0)h12=12;return`${h12}:${String(mm).padStart(2,"0")} ${ap}`;}
+
 export default function App(){
   const[calls,setCalls]=useState([]);
   const[config,setConfig]=useState(defaultConfig);
@@ -274,15 +319,75 @@ export default function App(){
   useEffect(()=>{if(!window.XLSX){const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";document.head.appendChild(s);}},[]);
   useEffect(()=>{if(liveActive){liveRef.current=setInterval(()=>setLiveSeconds(s=>s+1),1000);}else{clearInterval(liveRef.current);}return()=>clearInterval(liveRef.current);},[liveActive]);
 
+  // Contador de dinero perdido desde que se abre la app
+  const appStartTs=useRef(Date.now());
+  const[idleSecs,setIdleSecs]=useState(0);
+  useEffect(()=>{
+    const t=setInterval(()=>setIdleSecs(Math.floor((Date.now()-appStartTs.current)/1000)),1000);
+    return()=>clearInterval(t);
+  },[]);
+  // Resetear contador cuando se agrega una llamada
+  useEffect(()=>{
+    appStartTs.current=Date.now();
+    setIdleSecs(0);
+  },[calls.length]);
+
   function playBeep(freq=660,vol=0.5,dur=0.4){try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=freq;g.gain.setValueAtTime(vol,ctx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);o.start();o.stop(ctx.currentTime+dur);}catch{}}
   function showToast(msg){setToast(msg);setTimeout(()=>setToast(""),3000);}
   function startLiveCall(){setLiveSeconds(0);setLiveStart(getNowTimeStr());setLiveActive(true);}
   function stopLiveCall(){setLiveActive(false);const mins=Math.max(1,Math.round(liveSeconds/60));const pay=parseFloat((mins*activeRate).toFixed(2));setManualForm({customerId:"",startTime:liveStart||"",endTime:getNowTimeStr(),duration:String(mins),pay:String(pay)});setShowManual(true);}
   function cancelLiveCall(){setLiveActive(false);setLiveSeconds(0);setLiveStart(null);}
-  function handleManualChange(field,val){setManualForm(p=>{const next={...p,[field]:val};if(field==="startTime"||field==="endTime"){const toMins=t=>{const m=t.match(/(\d{1,2}):(\d{2})\s?([AP]M)/i);if(!m)return null;let h=parseInt(m[1]);const ap=m[3].toUpperCase();if(ap==="PM"&&h!==12)h+=12;if(ap==="AM"&&h===12)h=0;return h*60+parseInt(m[2]);};const s=toMins(next.startTime),e=toMins(next.endTime);if(s!==null&&e!==null&&e>s){next.duration=String(e-s);next.pay=String(parseFloat(((e-s)*activeRate).toFixed(2)));}}if(field==="duration"&&val)next.pay=String(parseFloat((parseInt(val)*activeRate).toFixed(2)));return next;});}
+  function handleManualChange(field,val){
+    setManualForm(p=>{
+      const next={...p,[field]:val};
+      if(field==="startTime"||field==="endTime"){
+        const s=timeToMins(next.startTime),e=timeToMins(next.endTime);
+        if(s!==null&&e!==null&&e>s){next.duration=String(e-s);next.pay=String(parseFloat(((e-s)*activeRate).toFixed(2)));}
+      }
+      if(field==="duration"&&val){
+        const dur=parseInt(val)||0;
+        next.pay=String(parseFloat((dur*activeRate).toFixed(2)));
+        const s=timeToMins(next.startTime);
+        if(s!==null&&dur>0)next.endTime=minsToTime(s+dur);
+      }
+      if(field==="startTime"&&next.duration){
+        const s=timeToMins(val);const dur=parseInt(next.duration)||0;
+        if(s!==null&&dur>0)next.endTime=minsToTime(s+dur);
+      }
+      if(field==="endTime"&&next.duration){
+        const e=timeToMins(val);const dur=parseInt(next.duration)||0;
+        if(e!==null&&dur>0)next.startTime=minsToTime(e-dur);
+      }
+      return next;
+    });
+  }
   function submitManual(){const dur=parseInt(manualForm.duration)||0;if(!dur){showToast("⚠️ Duración inválida");return;}const newCall={customerId:manualForm.customerId||"Manual",date:todayStr,callStart:manualForm.startTime||getNowTimeStr(),duration:dur,billable:"Yes",dropped:"No",pay:parseFloat(manualForm.pay)||parseFloat((dur*activeRate).toFixed(2)),surge:false,id:Date.now()+Math.random()};setCalls(prev=>[...prev,newCall]);setShowManual(false);setManualForm({customerId:"",startTime:"",endTime:"",duration:"",pay:""});setLiveStart(null);showToast("✅ Llamada agregada");}
-  function startEdit(c){setEditingId(c.id);setEditForm({callStart:c.callStart,duration:String(c.duration),pay:String(c.pay),customerId:c.customerId});}
-  function handleEditChange(field,val){setEditForm(p=>{const next={...p,[field]:val};if(field==="duration"&&val)next.pay=String(parseFloat((parseInt(val)*activeRate).toFixed(2)));return next;});}
+  function startEdit(c){
+    const startMins=timeToMins(c.callStart);
+    const callEnd=startMins!==null?minsToTime(startMins+c.duration):"";
+    setEditingId(c.id);
+    setEditForm({callStart:c.callStart,callEnd,duration:String(c.duration),pay:String(c.pay),customerId:c.customerId});
+  }
+  function handleEditChange(field,val){
+    setEditForm(p=>{
+      const next={...p,[field]:val};
+      if(field==="callStart"||field==="callEnd"){
+        const s=timeToMins(next.callStart),e=timeToMins(next.callEnd);
+        if(s!==null&&e!==null&&e>s){next.duration=String(e-s);next.pay=String(parseFloat(((e-s)*activeRate).toFixed(2)));}
+      }
+      if(field==="duration"&&val){
+        const dur=parseInt(val)||0;
+        next.pay=String(parseFloat((dur*activeRate).toFixed(2)));
+        const s=timeToMins(next.callStart);
+        if(s!==null&&dur>0)next.callEnd=minsToTime(s+dur);
+      }
+      if(field==="callStart"&&next.duration){
+        const s=timeToMins(val);const dur=parseInt(next.duration)||0;
+        if(s!==null&&dur>0)next.callEnd=minsToTime(s+dur);
+      }
+      return next;
+    });
+  }
   function saveEdit(id){setCalls(prev=>prev.map(c=>c.id===id?{...c,callStart:editForm.callStart,duration:parseInt(editForm.duration)||c.duration,pay:parseFloat(editForm.pay)||c.pay,customerId:editForm.customerId||c.customerId}:c));setEditingId(null);showToast("✏️ Actualizado");}
   async function handleFileLoad(file){if(!file)return;setImportError("");setImportFileName(file.name);const isXLSX=/\.xlsx?$/i.test(file.name),isCSV=/\.csv$/i.test(file.name);if(!isXLSX&&!isCSV){setImportError("Solo CSV o Excel.");return;}try{let headers=[],rows=[];if(isCSV){const text=await file.text();({headers,rows}=parseCSVText(text));}else{const buf=await file.arrayBuffer();const XLSX=window.XLSX;if(!XLSX){setImportError("Librería no disponible.");return;}const wb=XLSX.read(buf,{type:"array"});const ws=wb.Sheets[wb.SheetNames[0]];const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});headers=data[0].map(h=>String(h).trim());rows=data.slice(1).map(r=>r.map(v=>String(v).trim()));}if(!headers.length){setImportError("Archivo vacío.");return;}const preview=rowsToCallsSmart(rows,headers);if(!preview.length){setImportError("Sin filas válidas.");return;}setImportPreview(preview);setImportStats({total:preview.length,surge:preview.filter(c=>c.surge).length,totalPay:preview.reduce((s,c)=>s+c.pay,0),totalMins:preview.reduce((s,c)=>s+c.duration,0)});setImportStep("preview");}catch(e){setImportError("Error: "+e.message);}}
   function confirmImport(){const existing=new Set(calls.map(c=>`${c.customerId}-${c.date}-${c.callStart}`));const newCalls=importPreview.filter(c=>!existing.has(`${c.customerId}-${c.date}-${c.callStart}`));setCalls(prev=>[...prev,...newCalls]);setImportStep("done");showToast(`✅ ${newCalls.length} importadas`);}
@@ -468,13 +573,18 @@ export default function App(){
               );})}
             </div>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
-            {[["ID Cliente","customerId","text","Opcional"],["Hora inicio","startTime","text","08:00 AM"],["Hora fin","endTime","text","08:15 AM"],["Minutos","duration","number","15"]].map(([label,field,type,ph])=>(
-              <div key={field}>
-                <label style={CC.label}>{label}</label>
-                <input type={type} placeholder={ph} value={manualForm[field]} onChange={e=>handleManualChange(field,e.target.value)} style={{...CC.input,fontSize:13}}/>
-              </div>
-            ))}
+          <div style={{marginBottom:12}}>
+            <label style={CC.label}>ID Cliente</label>
+            <input type="text" placeholder="Opcional" value={manualForm.customerId} onChange={e=>handleManualChange("customerId",e.target.value)} style={{...CC.input,fontSize:13}}/>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+            <TimePicker label="HORA INICIO" value={manualForm.startTime} onChange={v=>handleManualChange("startTime",v)}/>
+            <TimePicker label="HORA FIN" value={manualForm.endTime} onChange={v=>handleManualChange("endTime",v)}/>
+          </div>
+          <div style={{marginBottom:12}}>
+            <label style={CC.label}>Minutos</label>
+            <input type="number" placeholder="15" value={manualForm.duration} onChange={e=>handleManualChange("duration",e.target.value)}
+              style={{...CC.input,fontSize:15,fontFamily:"var(--mono)",fontWeight:700,color:"var(--cyan)"}}/>
           </div>
           <div style={{marginBottom:16}}>
             <label style={CC.label}>Pago ($)</label>
@@ -510,9 +620,13 @@ export default function App(){
             <div style={{background:"var(--bg)",borderRadius:10,padding:14,border:`1px solid ${parsed.billable==="Yes"?"var(--green)44":"var(--red)44"}`}}>
               <div style={{fontWeight:700,color:parsed.billable==="Yes"?"var(--green)":"var(--red)",marginBottom:10,fontSize:13}}>{parsed.billable==="Yes"?"✅ Billable":"⛔ No Billable"}</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:12}}>
-                {[["Cliente",parsed.customerId],["Fecha",parsed.date],["Inicio",parsed.callStart],["Duración",`${parsed.duration}m`],["Pago",`$${parsed.pay.toFixed(2)}`]].map(([k,v])=>(
-                  <div key={k}><div style={{fontSize:10,color:"var(--text3)"}}>{k}</div><div style={{fontWeight:700,fontSize:13,fontFamily:"var(--mono)",color:"var(--text)"}}>{v}</div></div>
-                ))}
+                {(()=>{
+                  const startMins=timeToMins(parsed.callStart);
+                  const callEnd=startMins!==null?minsToTime(startMins+parsed.duration):"—";
+                  return [["Cliente",parsed.customerId],["Fecha",parsed.date],["Inicio",parsed.callStart],["Fin",callEnd],["Duración",`${parsed.duration}m`],["Pago",`$${parsed.pay.toFixed(2)}`]].map(([k,v])=>(
+                    <div key={k}><div style={{fontSize:10,color:"var(--text3)"}}>{k}</div><div style={{fontWeight:700,fontSize:13,fontFamily:"var(--mono)",color:"var(--text)"}}>{v}</div></div>
+                  ));
+                })()}
               </div>
               {parsed.billable==="Yes"
                 ?<button className="btn-primary" onClick={()=>{handleAdd();setShowPaste(false);}} style={{width:"100%",background:"var(--green2)",border:"none",borderRadius:9,color:"#fff",padding:"10px",fontWeight:700,cursor:"pointer",fontSize:14}}>➕ Agregar</button>
@@ -526,15 +640,23 @@ export default function App(){
       {editingId&&(
         <Modal onClose={()=>setEditingId(null)}>
           <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>EDITAR LLAMADA</div>
-          <div style={{fontSize:18,fontWeight:700,color:"var(--text)",marginBottom:18}}>Editar llamada</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
-            {[["ID","customerId","text"],["Hora inicio","callStart","text"],["Minutos","duration","number"]].map(([label,field,type])=>(
-              <div key={field}><label style={CC.label}>{label}</label><input type={type} value={editForm[field]} onChange={e=>handleEditChange(field,e.target.value)} style={{...CC.input,fontSize:13}}/></div>
-            ))}
+          <div style={{fontSize:18,fontWeight:700,color:"var(--text)",marginBottom:16}}>Editar llamada</div>
+          <div style={{marginBottom:12}}>
+            <label style={CC.label}>ID Cliente</label>
+            <input type="text" value={editForm.customerId||""} onChange={e=>handleEditChange("customerId",e.target.value)} style={{...CC.input,fontSize:13}}/>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+            <TimePicker label="HORA INICIO" value={editForm.callStart} onChange={v=>handleEditChange("callStart",v)}/>
+            <TimePicker label="HORA FIN" value={editForm.callEnd} onChange={v=>handleEditChange("callEnd",v)}/>
+          </div>
+          <div style={{marginBottom:12}}>
+            <label style={CC.label}>Minutos</label>
+            <input type="number" placeholder="15" value={editForm.duration||""} onChange={e=>handleEditChange("duration",e.target.value)}
+              style={{...CC.input,fontSize:15,fontFamily:"var(--mono)",fontWeight:700,color:"var(--cyan)"}}/>
           </div>
           <div style={{marginBottom:16}}>
             <label style={CC.label}>Pago ($)</label>
-            <input type="number" step="0.01" value={editForm.pay} onChange={e=>setEditForm(p=>({...p,pay:e.target.value}))} style={{...CC.input,fontSize:20,fontFamily:"var(--mono)",fontWeight:800,color:"var(--green)",border:"1px solid var(--green)33"}}/>
+            <input type="number" step="0.01" value={editForm.pay||""} onChange={e=>setEditForm(p=>({...p,pay:e.target.value}))} style={{...CC.input,fontSize:20,fontFamily:"var(--mono)",fontWeight:800,color:"var(--green)",border:"1px solid var(--green)33"}}/>
           </div>
           <div style={{display:"flex",gap:8}}>
             <button className="btn-primary" onClick={()=>saveEdit(editingId)} style={{flex:1,background:"var(--cyan)",border:"none",borderRadius:10,color:"#000",padding:"12px",fontWeight:700,cursor:"pointer",fontSize:14}}>💾 Guardar</button>
@@ -574,6 +696,10 @@ export default function App(){
               </div>
               <div style={{background:"var(--bg)",borderRadius:99,height:6,overflow:"hidden"}}>
                 <div style={{width:`${moneyPct}%`,height:"100%",background:"linear-gradient(90deg,var(--cyan),var(--green))",borderRadius:99,transition:"width .6s ease",boxShadow:moneyPct>0?"0 0 8px var(--cyan)66":"none"}}/>
+              </div>
+              <div style={{marginTop:14,paddingTop:14,borderTop:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>SIN LLAMADAS</div>
+                <div style={{fontFamily:"var(--mono)",fontWeight:900,fontSize:20,color:"var(--red)"}}>-${(idleSecs/60*0.12).toFixed(2)}</div>
               </div>
             </div>
 
