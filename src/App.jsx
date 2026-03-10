@@ -146,9 +146,9 @@ function parseDate(val){if(!val)return null;const s=String(val).trim();if(/^\d{2
 function parseTime(val){if(!val)return"N/A";const s=String(val).trim();if(/\d{1,2}:\d{2}\s?[AP]M/i.test(s))return s;const m=s.match(/^(\d{1,2}):(\d{2})$/);if(m){let h=parseInt(m[1]),min=m[2];const ap=h>=12?"PM":"AM";if(h>12)h-=12;if(h===0)h=12;return`${h}:${min} ${ap}`;}return s;}
 function parseHour(t){if(!t||t==="N/A")return null;const m=t.match(/(\d{1,2}):(\d{2})\s?([AP]M)/i);if(!m)return null;let h=parseInt(m[1]);const ap=m[3].toUpperCase();if(ap==="PM"&&h!==12)h+=12;if(ap==="AM"&&h===12)h=0;return h;}
 function norm(s){return String(s).toLowerCase().replace(/[^a-z0-9]/g,"");}
-function detectFieldSmart(h){const n=norm(h);if(n==="projectid"||n==="project_id")return"customerId";if(n.includes("serviceline"))return"serviceType";if(n.includes("servicedate")||n==="servicedate")return"date";if(n.includes("starttime")||n==="starttimecentral")return"callStart";if(n==="quantity")return"duration";if(n==="earnings")return"earnings";if(n==="adjustment")return"adjustment";if(n==="comments")return"comments";if(n.includes("customer")||n==="id")return"customerId";if(n.includes("date"))return"date";if(n.includes("start"))return"callStart";if(n.includes("duration")||n.includes("minutes"))return"duration";if(n.includes("pay")||n.includes("amount"))return"earnings";return null;}
+function detectFieldSmart(h){const n=norm(h);if(n==="projectid"||n==="project_id")return"customerId";if(n.includes("serviceline"))return"serviceType";if(n.includes("servicedate")||n==="servicedate")return"date";if(n.includes("starttime")||n==="starttimecentral")return"callStart";if(n==="quantity")return"duration";if(n==="earnings")return"earnings";if(n==="adjustment")return"adjustment";if(n==="comments")return"comments";if(n==="paymentstatus"||n==="paymentstat")return null;if(n.includes("customer")||n==="id")return"customerId";if(n.includes("date"))return"date";if(n.includes("start"))return"callStart";if(n.includes("duration")||n.includes("minutes"))return"duration";if(n.includes("pay")||n.includes("amount"))return"earnings";return null;}
 function parseCSVText(text){const lines=text.trim().split(/\r?\n/).filter(l=>l.trim());if(lines.length<2)return{headers:[],rows:[]};const fl=lines[0];const useTab=(fl.match(/\t/g)||[]).length>(fl.match(/,/g)||[]).length;const split=l=>useTab?l.split("\t").map(s=>s.trim().replace(/^"|"$/g,"")):l.split(",").map(s=>s.trim().replace(/^"|"$/g,""));return{headers:split(lines[0]),rows:lines.slice(1).map(split)};}
-function rowsToCallsSmart(rows,headers){const map={};headers.forEach((h,i)=>{const f=detectFieldSmart(h);if(f&&map[f]===undefined)map[f]=i;});return rows.map(row=>{const g=f=>map[f]!==undefined?String(row[map[f]]||"").trim():"";const earnings=parseFloat(g("earnings").replace(/[$,]/g,""))||0;const adjustment=parseFloat(g("adjustment").replace(/[$,]/g,""))||0;const totalPay=Math.round((earnings+adjustment)*100)/100;const comments=g("comments");const date=parseDate(g("date"));const duration=parseInt(g("duration"))||0;return{customerId:g("customerId")||"N/A",date:date||"N/A",callStart:parseTime(g("callStart")),duration,billable:"Yes",dropped:"No",pay:totalPay,surge:comments.toLowerCase().includes("surge"),serviceType:g("serviceType")||"",id:Date.now()+Math.random()};}).filter(c=>c.date!=="N/A"&&c.duration>0);}
+function rowsToCallsSmart(rows,headers){const map={};headers.forEach((h,i)=>{const f=detectFieldSmart(h);if(f&&map[f]===undefined)map[f]=i;});return rows.map(row=>{const g=f=>map[f]!==undefined?String(row[map[f]]||"").trim():"";const earnings=parseFloat(g("earnings").replace(/[$,]/g,""))||0;const adjustment=parseFloat(g("adjustment").replace(/[$,]/g,""))||0;const totalPay=Math.round((earnings+adjustment)*100)/100;const comments=g("comments");const date=parseDate(g("date"));const duration=Math.round(parseFloat(g("duration").replace(/[$,]/g,""))||0);return{customerId:g("customerId")||"N/A",date:date||"N/A",callStart:parseTime(g("callStart")),duration,billable:"Yes",dropped:"No",pay:totalPay,surge:comments.toLowerCase().includes("surge"),serviceType:g("serviceType")||"",id:Date.now()+Math.random()};}).filter(c=>c.date!=="N/A"&&c.duration>0);}
 function parseCallText(text){const clean=text.replace(/\s+/g," ").trim();const custMatch=clean.match(/(\d{5,})/);const dateMatch=clean.match(/(\d{2}\/\d{2}\/\d{4})/);const timeMatch=clean.match(/(\d{1,2}:\d{2}\s?[AP]M)/i);const durMatch=clean.match(/(\d+)\s*(?:Yes|No)/i);const billMatch=clean.match(/(\d+)\s*(Yes|No)\s*(Yes|No)/i);const payMatch=clean.match(/\$(\d+\.?\d*)/);if(!dateMatch||!durMatch)return null;return{customerId:custMatch?custMatch[1]:"N/A",date:dateMatch[1],callStart:timeMatch?timeMatch[1].trim():"N/A",duration:parseInt(durMatch[1]),billable:billMatch?billMatch[2]:"No",dropped:billMatch?billMatch[3]:"No",pay:payMatch?parseFloat(payMatch[1]):0,id:Date.now()+Math.random()};}
 function today(){const d=new Date();return`${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}/${d.getFullYear()}`;}
 function last7Dates(){return Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-i);return`${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}/${d.getFullYear()}`;}).reverse();}
@@ -326,6 +326,9 @@ export default function App(){
   const todayMoney=todayCalls.reduce((s,c)=>s+c.pay,0);
   const todayMins=todayCalls.reduce((s,c)=>s+c.duration,0);
   const moneyPct=Math.min(100,Math.round((todayMoney/config.dailyMoneyGoal)*100));
+  const minsNeeded=Math.ceil(config.dailyMoneyGoal/0.12);
+  const minsLeft=Math.max(0,minsNeeded-todayMins);
+  const minsGoalReached=minsLeft===0;
   const weekDates=last7Dates();
   const weekData=weekDates.map(d=>({date:d,label:d.slice(0,5),mins:(byDate[d]||[]).reduce((s,c)=>s+c.duration,0),money:(byDate[d]||[]).reduce((s,c)=>s+c.pay,0)}));
   const weekMoney=weekData.reduce((s,d)=>s+d.money,0);
@@ -576,7 +579,17 @@ export default function App(){
                 <div>
                   <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>INGRESOS HOY</div>
                   <div style={{fontSize:48,fontWeight:800,fontFamily:"var(--mono)",color:"var(--green)",lineHeight:1,marginTop:4}}>${todayMoney.toFixed(2)}</div>
-                  <div style={{fontSize:12,color:"var(--text2)",marginTop:4}}>{todayCalls.length} llamadas · {todayMins} min</div>
+                  <div style={{marginTop:10}}>
+                    {minsGoalReached?(
+                      <div style={{fontSize:16,fontWeight:900,fontFamily:"var(--mono)",color:"var(--green)"}}>✓ Meta de minutos alcanzada</div>
+                    ):(
+                      <div style={{display:"flex",alignItems:"baseline",gap:6}}>
+                        <div style={{fontSize:36,fontWeight:900,fontFamily:"var(--mono)",color:"var(--cyan)",lineHeight:1}}>{minsLeft}</div>
+                        <div style={{fontSize:13,fontWeight:700,color:"var(--cyan)"}}>min restantes</div>
+                      </div>
+                    )}
+                    <div style={{fontSize:11,color:"var(--text3)",marginTop:4,fontFamily:"var(--mono)"}}>{todayCalls.length} llamadas · {todayMins}/{minsNeeded} min hechos</div>
+                  </div>
                 </div>
                 <div style={{textAlign:"right"}}>
                   <div style={{fontSize:10,color:"var(--text3)",marginBottom:4}}>META</div>
