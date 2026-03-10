@@ -791,7 +791,7 @@ export default function App(){
                   <div style={{textAlign:"right"}}><div style={{fontWeight:800,fontFamily:"var(--mono)",color:"var(--green)",fontSize:14}}>${stats.money.toFixed(2)}</div><div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)"}}>{stats.mins}m · {stats.count}</div></div>
                 </div>
               </div>
-            );}
+            );})}
           </div>
         )}
 
