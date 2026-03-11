@@ -1,124 +1,94 @@
-# 📞 Call Tracker
+# 🐱 Mochi Call Tracker
 
-Aplicación web para registrar y analizar llamadas telefónicas como agente de call center. Pensada para uso personal: seguimiento de ingresos diarios, ritmo de trabajo, historial por ciclos de pago y proyecciones.
+A personal productivity app for freelance phone interpreters. Log calls, track earnings, and monitor your performance across pay cycles — all from your browser.
 
-**Live:** [call-tracker.vercel.app](https://call-tracker.vercel.app](https://call-tracker-git-main-rendelarr.vercel.app/)) · **Repo:** [rendelarr/call-tracker](https://github.com/rendelarr/call-tracker)
-
----
-
-## Stack
-
-- **React 18** (Create React App)
-- **localStorage** — persistencia local, sin backend
-- **SheetJS (xlsx)** — importación y exportación de archivos Excel/CSV
-- Desplegado en **Vercel** (auto-deploy desde `main`)
+**Live app:** [mochi-calltracker.is-a.dev](https://mochi-calltracker.is-a.dev)
 
 ---
 
-## Características
+## Features
 
-### Registro de llamadas
-- **En vivo** — temporizador que corre mientras dura la llamada; al detener abre el formulario pre-llenado con inicio, fin y duración calculados
-- **Manual** — formulario con campos de hora inicio, hora fin y minutos interconectados (cualquier cambio en uno recalcula los otros)
-- **Pegar texto** — parsea una línea copiada directamente del sistema de la empresa e interpreta los campos automáticamente
+### ☀️ Today
+- Real-time earnings display against your daily goal
+- Live call timer — start a call and save it when it ends
+- Manual entry and paste-to-parse logging
+- Edit or delete any call from the day's list
+- Minute goal tracker
 
-### Tarifas
-| Tier | $/min |
-|------|-------|
-| Normal | $0.12 |
-| Bronce | $0.13 |
-| Plata  | $0.14 |
-| Gold   | $0.15 |
+### ⚡ Stats
+- Daily score broken down into Goal, Rhythm, Streak, and Active components
+- Day-over-day and week-over-week comparisons
+- Cycle earnings projection at current pace
+- Call rhythm analysis — gap distribution between calls (today and across the cycle)
 
-La tarifa activa se selecciona antes de cada registro y afecta el cálculo de pago automático.
+### 🗓️ Week
+- Weekly minutes and earnings summary
+- Bar chart of daily activity for the current and previous week
 
-### Vistas (tabs)
+### 🔄 Cycle
+- Current pay cycle progress with days remaining and payday countdown
+- Active days, streak, and daily goal compliance rate
+- Visual calendar of cycle days with goal/active/today indicators
+- Full list of all pay cycles with earnings per cycle
 
-| Tab | Descripción |
-|-----|-------------|
-| **Hoy** | Ingresos del día, progreso hacia la meta, lista de llamadas, contador de costo idle |
-| **Stats** | Score del día (0–100), comparativa vs ayer y semana pasada, ritmo entre llamadas, heatmap de actividad por hora, racha de días activos |
-| **Semana** | Minutos e ingresos de los últimos 7 días con barras comparativas |
-| **Ciclo** | Estado del ciclo de pago actual y listado histórico de todos los ciclos |
-| **Historial** | Todas las llamadas agrupadas por fecha, colapsables, con edición y borrado individual |
-
-### Meta diaria
-Meta de ingresos configurable (default $30). Muestra porcentaje de avance, minutos restantes para alcanzarla y proyección del ciclo actual.
-
-### Contador idle
-Muestra cuánto dinero teórico se ha "dejado de ganar" desde la última llamada registrada. Se resetea automáticamente al agregar una nueva llamada.
-
-### Importar / Exportar
-- Importa **CSV o Excel** con detección automática de columnas (fecha, hora, duración, billable, etc.)
-- Deduplica por `customerId + fecha + hora inicio`
-- Exporta a **CSV** o **Excel** con el formato estándar de la empresa
-
-### Ciclos de pago
-27 ciclos pre-cargados del 13/12/2025 al 25/12/2026 (quincenal). Muestra días restantes del ciclo, fecha de cobro y proyección de ingresos al ritmo actual.
+### 📜 History
+- Expandable log of all past days
+- Per-call detail: customer ID, start time, duration, earnings, surge flag
 
 ---
 
-## Estructura del proyecto
+## Logging a Call
 
-```
-call-tracker/
-├── public/
-├── src/
-│   └── App.jsx        # Toda la app en un solo archivo
-├── package.json
-└── README.md
-```
+**Live** — tap 🔴 Live when a call starts, tap ⏹️ Stop when it ends. The duration is calculated automatically.
 
-Todo el código vive en `src/App.jsx`. La estructura interna está organizada en secciones:
+**Manual** — tap ✍️ Manual to enter start time, end time, or minutes directly.
 
-```
-Constants → Global styles → Style utilities → Date/time utils →
-Time helpers → Data helpers → Import helpers →
-TimePicker → Modal → UI components → App()
-  ├── State
-  ├── Effects
-  ├── Derived data
-  ├── Event handlers
-  └── Render (tabs)
-```
+**Paste** — tap 📋 Paste and drop in raw call data from your platform. The app parses customer ID, date, start time, duration, pay, billable status, and surge automatically.
 
 ---
 
-## Instalación local
+## Import / Export
+
+- **Import:** CSV or Excel files exported from your platform. The parser auto-detects column headers.
+- **Export:** Download your logged calls as CSV or Excel at any time from ⚙️ Settings.
+
+Duplicate detection on import: calls with the same customer ID + date + start time are skipped.
+
+---
+
+## Configuration
+
+Open ⚙️ Settings to:
+- Set your **daily earnings goal**
+- Switch between **Light**, **Eva**, and **Dark** themes
+
+---
+
+## Tech Stack
+
+| | |
+|---|---|
+| Framework | React 18 (Create React App) |
+| Storage | localStorage |
+| Export | SheetJS (xlsx) |
+| Deployment | Vercel |
+| Domain | is-a.dev |
+
+No backend. No accounts. All data stays in your browser.
+
+---
+
+## Local Development
 
 ```bash
-git clone https://github.com/rendelarr/call-tracker.git
+git clone https://github.com/rendelarr/call-tracker
 cd call-tracker
 npm install
 npm start
 ```
 
-La app corre en `http://localhost:3000`.
-
 ---
 
-## Deploy
+## Author
 
-Vercel detecta automáticamente CRA. Cualquier push a `main` dispara un deploy.
-
-```bash
-git add src/App.jsx
-git commit -m "descripción"
-git push origin main
-```
-
----
-
-## Datos y privacidad
-
-Todos los datos se guardan exclusivamente en `localStorage` del navegador bajo las claves `call_tracker_data` y `call_tracker_config`. No hay servidor, no hay base de datos, no se envía nada a ningún lado.
-
-> ⚠️ Limpiar el caché o usar modo incógnito borra los datos. Para no perderlos, exporta a Excel periódicamente.
-
----
-
-## Roadmap
-
-- [ ] Migración a Firebase (Auth + Firestore) para persistencia entre dispositivos
-- [ ] Soporte multi-usuario
-- [ ] Contador de minutos faltantes para meta diaria con ETA en tiempo real
+Made by [@rendelarr](https://github.com/rendelarr)
