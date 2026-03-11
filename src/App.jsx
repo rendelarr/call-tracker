@@ -360,17 +360,29 @@ const StatBox = ({ label, value, color = "var(--cyan)", sub }) => (
   </div>
 );
 
-function HeatmapCard({ heatmap, maxHeat }) {
+function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
   const [hoveredH, setHoveredH] = useState(null);
-  const nowH    = new Date().getHours();
-  const HOURS   = Array.from({length:24}, (_, i) => i);           // 0–23
-  const peakH   = HOURS.reduce((best, h) => heatmap[h] > heatmap[best] ? h : best, 0);
-  const hasPeak = heatmap[peakH] > 0;
+  const nowH      = new Date().getHours();
+  const HOURS     = Array.from({length:24}, (_, i) => i);
+  const totalMins = HOURS.reduce((s, h) => s + heatmap[h], 0);
 
-  // Color per hour: morning amber, afternoon orange, evening purple
-  const hourColor = h => h < 12 ? "#d97706" : h < 18 ? "#ea580c" : "#7c3aed";
+  // Top 3 peak hours (only hours with activity, sorted descending)
+  const top3 = HOURS
+    .filter(h => heatmap[h] > 0)
+    .sort((a, b) => heatmap[b] - heatmap[a])
+    .slice(0, 3);
 
-  // Label: show only every 3 hours to avoid clutter
+  // Single intensity color: cyan scale, light→dark as activity increases
+  // Empty cells are clearly distinct (solid gray bg)
+  const PEAK_COLOR = "#0099aa"; // var(--cyan2) equivalent
+  const intensityBg = (intensity) => {
+    if (intensity === 0) return "var(--bg3)";
+    // From a very light tint to solid color
+    const alpha = 0.12 + intensity * 0.88;
+    return `rgba(0, 153, 170, ${alpha})`;
+  };
+  const intensityText = (intensity) => intensity > 0.55 ? "#fff" : "var(--text2)";
+
   const hourLabel = h => {
     if (h % 3 !== 0) return "";
     if (h === 0)  return "12a";
@@ -378,106 +390,151 @@ function HeatmapCard({ heatmap, maxHeat }) {
     return h < 12 ? `${h}a` : `${h-12}p`;
   };
 
-  const totalMins = HOURS.reduce((s, h) => s + heatmap[h], 0);
+  const fmtH = h => `${h%12||12}${h<12?"am":"pm"}`;
+  const medals = ["🥇","🥈","🥉"];
+
+  // Build dropdown options: all PAY_CYCLES + "Todos"
+  const cycleOptions = PAY_CYCLES.map((c, i) => ({ value: i, label: `${c.start} → ${c.end}` }));
 
   return (
     <div style={{...CC.card,padding:20,marginBottom:12}} className="card">
+
       {/* Header */}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
-        <div>
+      <div style={{marginBottom:12}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>Actividad por hora</div>
-          <div style={{fontSize:11,color:"var(--text2)",marginTop:2}}>
-            {totalMins > 0
-              ? <span>{totalMins}m registrados — hora pico: <span style={{fontWeight:700,color:hourColor(peakH)}}>{peakH%12||12}{peakH<12?"am":"pm"}</span> ({heatmap[peakH]}m)</span>
-              : "Sin actividad registrada"}
-          </div>
+          <div style={{fontSize:11,color:"var(--text2)",fontFamily:"var(--mono)"}}>{totalMins > 0 ? `${totalMins}m` : ""}</div>
         </div>
-        {hasPeak && (
-          <div style={{background:hourColor(peakH)+"18",border:`1px solid ${hourColor(peakH)}44`,borderRadius:8,padding:"4px 10px",textAlign:"center"}}>
-            <div style={{fontSize:16,fontWeight:900,fontFamily:"var(--mono)",color:hourColor(peakH)}}>{peakH%12||12}{peakH<12?"am":"pm"}</div>
-            <div style={{fontSize:9,color:hourColor(peakH),fontWeight:700,letterSpacing:.5}}>HORA PICO</div>
+
+        {/* Top 3 peaks */}
+        {top3.length > 0 && (
+          <div style={{display:"flex",gap:8,marginTop:10}}>
+            {top3.map((h, i) => (
+              <div key={h} style={{
+                background: i===0 ? "rgba(0,153,170,0.12)" : "var(--bg)",
+                border: i===0 ? "1px solid rgba(0,153,170,0.4)" : "1px solid var(--border)",
+                borderRadius:8, padding:"6px 10px", display:"flex", alignItems:"center", gap:6,
+              }}>
+                <span style={{fontSize:14,lineHeight:1}}>{medals[i]}</span>
+                <div>
+                  <div style={{fontSize:13,fontWeight:800,fontFamily:"var(--mono)",color:i===0?PEAK_COLOR:"var(--text)",lineHeight:1}}>{fmtH(h)}</div>
+                  <div style={{fontSize:10,color:"var(--text3)",marginTop:1}}>{heatmap[h]}m</div>
+                </div>
+              </div>
+            ))}
+            {top3.length < 2 && (
+              <div style={{alignSelf:"center",fontSize:11,color:"var(--text3)"}}>Acumula más llamadas para ver el ranking completo</div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Tooltip */}
-      {hoveredH !== null && (
-        <div style={{background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:8,padding:"6px 12px",marginBottom:10,fontSize:12,display:"flex",justifyContent:"space-between"}}>
-          <span style={{fontWeight:700,color:hourColor(hoveredH)}}>{hoveredH%12||12}:00 {hoveredH<12?"AM":"PM"}</span>
-          <span style={{fontFamily:"var(--mono)",color:"var(--text)"}}>{heatmap[hoveredH] > 0 ? `${heatmap[hoveredH]} min activos` : "sin actividad"}</span>
-        </div>
-      )}
+      {/* Cycle selector dropdown */}
+      <div style={{marginBottom:14}}>
+        <select
+          value={scope === "all" ? "all" : typeof scope === "number" ? scope : "cycle"}
+          onChange={e => {
+            const v = e.target.value;
+            setScope(v === "all" ? "all" : v === "cycle" ? "cycle" : parseInt(v));
+          }}
+          style={{
+            width:"100%", background:"var(--bg)", border:"1px solid var(--border2)",
+            borderRadius:8, color:"var(--text)", padding:"7px 12px",
+            fontSize:12, outline:"none", cursor:"pointer", fontFamily:"var(--sans)",
+          }}>
+          <option value="cycle">Ciclo actual</option>
+          <option value="all">Todos los ciclos</option>
+          <optgroup label="Ciclos anteriores">
+            {cycleOptions.filter(o => toDate(PAY_CYCLES[o.value].end) < new Date()).map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </optgroup>
+        </select>
+      </div>
 
-      {/* Single continuous row of 24 cells */}
+      {/* Grid */}
       {totalMins === 0 ? (
         <div style={{textAlign:"center",padding:"24px 0",color:"var(--text3)",fontSize:12}}>
-          Registra llamadas para ver tu distribución horaria
+          Sin datos para el período seleccionado
         </div>
       ) : (
         <>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(24,1fr)",gap:3,marginBottom:6}}>
+          <div
+            style={{display:"grid",gridTemplateColumns:"repeat(24,1fr)",gap:3}}
+            onMouseLeave={() => setHoveredH(null)}
+          >
             {HOURS.map(h => {
               const val       = heatmap[h];
-              const intensity = val / maxHeat;
+              const intensity = maxHeat > 0 ? val / maxHeat : 0;
               const isNow     = h === nowH;
-              const isPeak    = h === peakH && hasPeak;
-              const color     = hourColor(h);
-              const [r,g,b]   = [color.slice(1,3),color.slice(3,5),color.slice(5,7)].map(x=>parseInt(x,16));
-              const bg        = intensity > 0 ? `rgba(${r},${g},${b},${0.15 + intensity * 0.75})` : "var(--bg)";
+              const peakRank  = top3.indexOf(h); // -1, 0, 1, or 2
               return (
                 <div key={h} className="heat-cell"
                   onMouseEnter={() => setHoveredH(h)}
-                  onMouseLeave={() => setHoveredH(null)}
                   style={{
-                    borderRadius:5,
-                    height:40,
-                    background:bg,
-                    border: isPeak  ? `1.5px solid ${color}` :
-                            isNow   ? `1px solid ${color}88` :
-                                      `1px solid ${intensity>0?"transparent":"var(--border)"}`,
-                    position:"relative",
-                    cursor:"default",
-                    boxShadow: isPeak ? `0 0 6px ${color}44` : "none",
+                    borderRadius:6, height:48, position:"relative", cursor:"default",
+                    background: intensityBg(intensity),
+                    border: peakRank === 0 ? `2px solid ${PEAK_COLOR}` :
+                            peakRank === 1 ? `1.5px solid rgba(0,153,170,0.5)` :
+                            peakRank === 2 ? `1px solid rgba(0,153,170,0.3)` :
+                            isNow          ? "1px solid var(--border2)" :
+                                             "1px solid transparent",
+                    boxShadow: peakRank === 0 ? `0 0 8px rgba(0,153,170,0.35)` : "none",
                   }}>
                   {/* Fill bar from bottom */}
                   {val > 0 && (
                     <div style={{
                       position:"absolute", bottom:0, left:0, right:0,
-                      height:`${Math.max(8, intensity * 100)}%`,
-                      background:`rgba(${r},${g},${b},0.35)`,
-                      borderRadius:"0 0 4px 4px",
+                      height:`${Math.max(6, intensity * 100)}%`,
+                      background:`rgba(0,153,170,${0.2 + intensity * 0.3})`,
+                      borderRadius:"0 0 5px 5px",
                     }}/>
                   )}
-                  {/* Now indicator */}
-                  {isNow && (
-                    <div style={{position:"absolute",top:3,left:"50%",transform:"translateX(-50%)",width:4,height:4,borderRadius:"50%",background:color,animation:"pulse 1.5s infinite"}}/>
+                  {/* Peak medal */}
+                  {peakRank >= 0 && (
+                    <div style={{position:"absolute",top:2,left:"50%",transform:"translateX(-50%)",fontSize:9,lineHeight:1}}>
+                      {medals[peakRank]}
+                    </div>
                   )}
-                  {/* Peak crown */}
-                  {isPeak && (
-                    <div style={{position:"absolute",top:2,left:"50%",transform:"translateX(-50%)",fontSize:8,lineHeight:1}}>★</div>
+                  {/* Now dot */}
+                  {isNow && (
+                    <div style={{position:"absolute",bottom:4,left:"50%",transform:"translateX(-50%)",width:4,height:4,borderRadius:"50%",background:PEAK_COLOR,animation:"pulse 1.5s infinite"}}/>
                   )}
                 </div>
               );
             })}
           </div>
 
-          {/* Hour labels — only every 3h */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(24,1fr)",gap:3,marginBottom:8}}>
+          {/* Hour labels */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(24,1fr)",gap:3,marginTop:3,marginBottom:8}}>
             {HOURS.map(h => (
-              <div key={h} style={{fontSize:8,textAlign:"center",color:h===nowH?"var(--cyan2)":"var(--text3)",fontFamily:"var(--mono)",fontWeight:h===nowH?700:400,lineHeight:1}}>
+              <div key={h} style={{fontSize:8,textAlign:"center",fontFamily:"var(--mono)",lineHeight:1,
+                color: top3[0]===h ? PEAK_COLOR : h===nowH ? "var(--cyan2)" : "var(--text3)",
+                fontWeight: top3[0]===h || h===nowH ? 700 : 400}}>
                 {hourLabel(h)}
               </div>
             ))}
           </div>
 
-          {/* Legend */}
-          <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-            {[["Mañana","#d97706","6am–11am"],["Tarde","#ea580c","12pm–5pm"],["Noche","#7c3aed","6pm–11pm"]].map(([label,color,range])=>(
-              <div key={label} style={{display:"flex",alignItems:"center",gap:5}}>
-                <div style={{width:8,height:8,borderRadius:2,background:color,opacity:.8}}/>
-                <span style={{fontSize:10,color:"var(--text3)"}}>{label} <span style={{color:"var(--text3)",opacity:.6}}>{range}</span></span>
+          {/* Tooltip */}
+          <div style={{minHeight:30,marginBottom:8}}>
+            {hoveredH !== null && (
+              <div style={{background:"var(--bg)",border:"1px solid var(--border2)",borderRadius:8,padding:"5px 12px",fontSize:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontWeight:700,color:PEAK_COLOR}}>{hoveredH%12||12}:00 {hoveredH<12?"AM":"PM"}</span>
+                <span style={{fontFamily:"var(--mono)",color:"var(--text)"}}>{heatmap[hoveredH] > 0 ? `${heatmap[hoveredH]} min` : "sin actividad"}</span>
               </div>
-            ))}
+            )}
+          </div>
+
+          {/* Intensity legend */}
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:10,color:"var(--text3)"}}>Menos</span>
+            <div style={{display:"flex",gap:2}}>
+              {[0.05,0.25,0.5,0.75,1].map(v => (
+                <div key={v} style={{width:16,height:10,borderRadius:3,background:intensityBg(v)}}/>
+              ))}
+            </div>
+            <span style={{fontSize:10,color:"var(--text3)"}}>Más actividad</span>
           </div>
         </>
       )}
@@ -497,6 +554,7 @@ export default function App() {
   const [toast,          setToast]          = useState("");
   const [cycleView,      setCycleView]      = useState("current");
   const [expandedDays,   setExpandedDays]   = useState(new Set());
+  const [heatmapScope,   setHeatmapScope]   = useState("cycle"); // "cycle" | "all" | cycle index (number)
 
   // Modals
   const [showGoal,       setShowGoal]       = useState(false);
@@ -619,8 +677,20 @@ export default function App() {
   const lwMoney   = lwDates.reduce((s, d) => s + (byDate[d] || []).reduce((ss, c) => ss + c.pay, 0), 0);
   const lwMins    = lwDates.reduce((s, d) => s + (byDate[d] || []).reduce((ss, c) => ss + c.duration, 0), 0);
 
+  const heatmapCalls = (() => {
+    if (heatmapScope === "all") return billableCalls;
+    const cycleToUse = typeof heatmapScope === "number" ? PAY_CYCLES[heatmapScope] : currentCycle;
+    if (!cycleToUse) return billableCalls;
+    const s = toDate(cycleToUse.start), e = toDate(cycleToUse.end);
+    return billableCalls.filter(c => { const d = toDate(c.date); return d >= s && d <= e; });
+  })();
+  const heatmapCycleLabel = (() => {
+    if (heatmapScope === "all") return "Todos los ciclos";
+    const cycleToUse = typeof heatmapScope === "number" ? PAY_CYCLES[heatmapScope] : currentCycle;
+    return cycleToUse ? `${cycleToUse.start} → ${cycleToUse.end}` : "";
+  })();
   const heatmap = Array(24).fill(0);
-  billableCalls.forEach(c => { const h = parseHour(c.callStart); if (h !== null) heatmap[h] += c.duration; });
+  heatmapCalls.forEach(c => { const h = parseHour(c.callStart); if (h !== null) heatmap[h] += c.duration; });
   const maxHeat = Math.max(...heatmap, 1);
 
   const sortedToday = [...todayCalls].sort((a, b) => (timeToMins(a.callStart) || 0) - (timeToMins(b.callStart) || 0));
@@ -1205,171 +1275,220 @@ export default function App() {
             )}
 
             {/* Rhythm */}
-            <div style={{...CC.card,padding:20,marginBottom:12}} className="card">
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:4}}>
-                <div style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>Ritmo entre llamadas</div>
-                {avgGap !== null && (
-                  <div style={{fontSize:10,color:"var(--text3)"}}>
-                    objetivo: <span style={{color:"var(--green)",fontWeight:700}}>≤5 min</span>
-                  </div>
-                )}
-              </div>
-
-              {allGaps.length === 0 ? (
-                <div style={{textAlign:"center",padding:"20px 0",color:"var(--text3)",fontSize:13}}>
-                  <div style={{fontSize:28,marginBottom:6}}>📞</div>
-                  Necesitas al menos 2 llamadas para ver el ritmo
-                </div>
-              ) : (
-                <>
-                  {/* Summary row */}
-                  <div style={{display:"flex",gap:10,marginBottom:16,marginTop:8}}>
-                    {[
-                      ["Promedio", `${avgGap}m`, avgGap<=5?"var(--green)":avgGap<=15?"var(--amber)":"var(--red)"],
-                      ["Mejor",    `${Math.min(...allGaps)}m`, "var(--green)"],
-                      ["Peor",     `${Math.max(...allGaps)}m`, "var(--red)"],
-                      ["Gaps",     allGaps.length, "var(--text2)"],
-                    ].map(([label, val, color]) => (
-                      <div key={label} style={{flex:1,background:"var(--bg)",borderRadius:8,padding:"8px 6px",textAlign:"center"}}>
-                        <div style={{fontSize:15,fontWeight:800,fontFamily:"var(--mono)",color}}>{val}</div>
-                        <div style={{fontSize:9,color:"var(--text3)",marginTop:2,fontWeight:600,letterSpacing:.5}}>{label.toUpperCase()}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Individual gaps as bars */}
-                  <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:.8,marginBottom:8}}>PAUSA ENTRE CADA PAR DE LLAMADAS</div>
-                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                    {allGaps.map((gap, i) => {
-                      const gapColor  = gap <= 5 ? "var(--green)" : gap <= 15 ? "var(--amber)" : "var(--red)";
-                      const gapLabel  = gap <= 5 ? "✓" : gap <= 15 ? "~" : "↑";
-                      const maxG      = Math.max(...allGaps, 20);
-                      const pct       = Math.min(100, Math.round((gap / maxG) * 100));
-                      const fromCall  = sortedToday[i]?.callStart   || "";
-                      const toCall    = sortedToday[i+1]?.callStart || "";
-                      return (
-                        <div key={i}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
-                            <div style={{fontSize:10,color:"var(--text3)",fontFamily:"var(--mono)"}}>
-                              {fromCall} → {toCall}
-                            </div>
-                            <div style={{display:"flex",alignItems:"center",gap:5}}>
-                              <span style={{fontSize:10,color:gapColor}}>{gapLabel}</span>
-                              <span style={{fontSize:11,fontWeight:700,fontFamily:"var(--mono)",color:gapColor}}>{gap}m</span>
-                            </div>
-                          </div>
-                          <div style={{background:"var(--bg)",borderRadius:99,height:5,overflow:"hidden"}}>
-                            <div style={{width:`${pct}%`,height:"100%",background:gapColor,borderRadius:99,opacity:.7,transition:"width .3s"}}/>
-                          </div>
-                          {/* Goal marker at 5min */}
-                          {maxG > 5 && (
-                            <div style={{position:"relative",height:4}}>
-                              <div style={{position:"absolute",left:`${Math.round((5/maxG)*100)}%`,top:0,width:1,height:4,background:"var(--green)",opacity:.5}}/>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Overall verdict */}
-                  <div style={{marginTop:14,paddingTop:12,borderTop:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <div style={{fontSize:12,color:"var(--text2)"}}>
-                      {allGaps.filter(g=>g<=5).length} de {allGaps.length} pausas en objetivo
-                    </div>
-                    <div style={{fontSize:12,fontWeight:700,color:avgGap<=5?"var(--green)":avgGap<=15?"var(--amber)":"var(--red)"}}>
-                      {avgGap<=5?"Excelente 🔥":avgGap<=15?"Normal ⚡":"Lento 🐢"}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <HeatmapCard heatmap={heatmap} maxHeat={maxHeat}/>
-
-            {/* Streak */}
             {(() => {
-              const activeLast30 = last30.filter(d => byDate[d]).length;
-              const DAY_LABELS   = ["D","L","M","X","J","V","S"];
-              // Find the weekday of the first day in last30 to align the grid
-              const firstDate    = last30[0];
-              const firstDow     = firstDate ? toDate(firstDate).getDay() : 0;
-              // Pad with empty slots so day 0 of last30 lands on the right column
-              const padded = Array(firstDow).fill(null).concat(last30);
+              const b2b      = allGaps.filter(g => g === 0);
+              const onTarget = allGaps.filter(g => g <= 5);
+              const mid      = allGaps.filter(g => g > 5 && g <= 15);
+              const slow     = allGaps.filter(g => g > 15);
+              const total    = allGaps.length;
+              const pctGreen = total ? Math.round((onTarget.length / total) * 100) : 0;
+              const pctAmber = total ? Math.round((mid.length      / total) * 100) : 0;
+              const pctRed   = total ? 100 - pctGreen - pctAmber               : 0;
+              // Top 3 longest gaps with their time window
+              const gapsWithCtx = allGaps.map((gap, i) => ({
+                gap,
+                from: sortedToday[i]?.callStart   || "",
+                to:   sortedToday[i+1]?.callStart || "",
+              }));
+              const top3 = [...gapsWithCtx].sort((a, b) => b.gap - a.gap).slice(0, 3).filter(g => g.gap > 5);
               return (
                 <div style={{...CC.card,padding:20,marginBottom:12}} className="card">
-                  {/* Header */}
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
-                    <div>
-                      <div style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>Racha de trabajo</div>
-                      <div style={{fontSize:11,color:"var(--text2)",marginTop:2}}>Últimos 30 días</div>
-                    </div>
-                    <div style={{textAlign:"right"}}>
-                      <div style={{fontSize:28,fontWeight:900,fontFamily:"var(--mono)",color:"var(--amber)",lineHeight:1}}>{streak}</div>
-                      <div style={{fontSize:10,color:"var(--amber)",fontWeight:700,marginTop:2}}>días seguidos</div>
-                    </div>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:14}}>
+                    <div style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>Ritmo entre llamadas</div>
+                    <div style={{fontSize:10,color:"var(--text3)"}}>objetivo: <span style={{color:"var(--green)",fontWeight:700}}>≤5 min</span></div>
                   </div>
 
-                  {/* Stats row */}
+                  {total === 0 ? (
+                    <div style={{textAlign:"center",padding:"20px 0",color:"var(--text3)",fontSize:13}}>
+                      <div style={{fontSize:28,marginBottom:6}}>📞</div>
+                      Necesitas al menos 2 llamadas
+                    </div>
+                  ) : (
+                    <>
+                      {/* 3 stats */}
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
+                        {/* Promedio */}
+                        <div style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
+                          <div style={{fontSize:20,fontWeight:900,fontFamily:"var(--mono)",color:avgGap<=5?"var(--green)":avgGap<=15?"var(--amber)":"var(--red)",lineHeight:1}}>{avgGap}m</div>
+                          <div style={{fontSize:9,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>PROMEDIO</div>
+                        </div>
+                        {/* B2B */}
+                        <div style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
+                          <div style={{display:"flex",alignItems:"baseline",justifyContent:"center",gap:4}}>
+                            <div style={{fontSize:20,fontWeight:900,fontFamily:"var(--mono)",color:"var(--green)",lineHeight:1}}>B2B</div>
+                            {b2b.length > 0 && <div style={{fontSize:12,fontWeight:700,fontFamily:"var(--mono)",color:"var(--green)"}}>×{b2b.length}</div>}
+                          </div>
+                          <div style={{fontSize:9,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>{b2b.length === 0 ? "NINGUNO" : "BACK TO BACK"}</div>
+                        </div>
+                        {/* Total gaps */}
+                        <div style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
+                          <div style={{fontSize:20,fontWeight:900,fontFamily:"var(--mono)",color:"var(--text2)",lineHeight:1}}>{total}</div>
+                          <div style={{fontSize:9,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>PAUSAS</div>
+                        </div>
+                      </div>
+
+                      {/* Segmented distribution bar */}
+                      <div style={{marginBottom:10}}>
+                        <div style={{display:"flex",borderRadius:99,overflow:"hidden",height:10,gap:1}}>
+                          {pctGreen > 0 && <div style={{flex:pctGreen,background:"var(--green)",opacity:.8}}/>}
+                          {pctAmber > 0 && <div style={{flex:pctAmber,background:"var(--amber)",opacity:.8}}/>}
+                          {pctRed   > 0 && <div style={{flex:pctRed,  background:"var(--red)",  opacity:.8}}/>}
+                        </div>
+                        <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}>
+                          {[
+                            [onTarget.length, "≤5m", "var(--green)"],
+                            [mid.length,      "6–15m","var(--amber)"],
+                            [slow.length,     ">15m", "var(--red)"],
+                          ].map(([count, label, color]) => (
+                            <div key={label} style={{display:"flex",alignItems:"center",gap:4}}>
+                              <div style={{width:7,height:7,borderRadius:2,background:color,opacity:.8}}/>
+                              <span style={{fontSize:10,color:"var(--text2)",fontFamily:"var(--mono)"}}>{count} <span style={{color:"var(--text3)"}}>{label}</span></span>
+                            </div>
+                          ))}
+                          <div style={{fontSize:10,color:pctGreen>=70?"var(--green)":pctGreen>=40?"var(--amber)":"var(--red)",fontWeight:700}}>
+                            {pctGreen}% en objetivo
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Top outliers */}
+                      {top3.length > 0 && (
+                        <div style={{borderTop:"1px solid var(--border)",paddingTop:12,marginTop:4}}>
+                          <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:.8,marginBottom:8}}>PAUSAS MÁS LARGAS</div>
+                          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                            {top3.map((g, i) => (
+                              <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                                <div style={{fontSize:11,color:"var(--text2)",fontFamily:"var(--mono)"}}>{g.from} → {g.to}</div>
+                                <div style={{fontSize:12,fontWeight:800,fontFamily:"var(--mono)",color:g.gap<=15?"var(--amber)":"var(--red)"}}>{g.gap}m</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })()}
+
+            <HeatmapCard heatmap={heatmap} maxHeat={maxHeat} scope={heatmapScope} setScope={setHeatmapScope} cycleLabel={heatmapCycleLabel}/>
+
+            {/* Streak — cycle focused */}
+            {(() => {
+              if (!currentCycle) return null;
+
+              // Build list of all days in cycle (as dateStr MM/DD/YYYY)
+              const cycleStart  = toDate(currentCycle.start);
+              const cycleEnd    = toDate(currentCycle.end);
+              const cycleDays   = [];
+              for (let d = new Date(cycleStart); d <= cycleEnd; d.setDate(d.getDate()+1)) {
+                const mm = String(d.getMonth()+1).padStart(2,"0");
+                const dd = String(d.getDate()).padStart(2,"0");
+                const yyyy = d.getFullYear();
+                cycleDays.push(`${mm}/${dd}/${yyyy}`);
+              }
+              const totalDays   = cycleDays.length;
+              const daysLeft    = Math.max(0, daysUntil(currentCycle.end));
+              const daysPassed  = totalDays - daysLeft;
+
+              // Active days & streak within cycle
+              const cycleActive = cycleDays.filter(d => !!byDate[d]);
+              const activeCount = cycleActive.length;
+
+              // Streak = consecutive active days ending today (within cycle)
+              let cycleStreak = 0;
+              for (let i = daysPassed - 1; i >= 0; i--) {
+                if (byDate[cycleDays[i]]) cycleStreak++;
+                else break;
+              }
+
+              // Goal hit: days where total pay >= dailyGoal
+              const dailyGoal   = config.goal || 30;
+              const goalDays    = cycleActive.filter(d =>
+                (byDate[d] || []).reduce((s, c) => s + c.pay, 0) >= dailyGoal
+              ).length;
+              const goalPct     = activeCount > 0 ? Math.round((goalDays / activeCount) * 100) : 0;
+              const goalColor   = goalPct >= 75 ? "var(--green)" : goalPct >= 50 ? "var(--amber)" : "var(--red)";
+
+              return (
+                <div style={{...CC.card,padding:20,marginBottom:12}} className="card">
+                  <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:14}}>Racha del ciclo</div>
+
+                  {/* 3 stats */}
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
                     {[
-                      ["Racha actual", `${streak}d`, "var(--amber)"],
-                      ["Días activos", `${activeLast30}/30`, "var(--cyan2)"],
-                      ["% actividad",  `${Math.round((activeLast30/30)*100)}%`, activeLast30/30>=0.7?"var(--green)":activeLast30/30>=0.4?"var(--amber)":"var(--red)"],
+                      ["Racha actual", cycleStreak > 0 ? `${cycleStreak}d 🔥` : "0d", "var(--amber)"],
+                      ["Días activos", `${activeCount}/${totalDays}`, "var(--cyan2)"],
+                      ["Días restantes", `${daysLeft}d`, daysLeft <= 2 ? "var(--red)" : "var(--text2)"],
                     ].map(([label, val, color]) => (
-                      <div key={label} style={{background:"var(--bg)",borderRadius:8,padding:"8px",textAlign:"center"}}>
-                        <div style={{fontSize:16,fontWeight:800,fontFamily:"var(--mono)",color}}>{val}</div>
-                        <div style={{fontSize:9,color:"var(--text3)",marginTop:2,fontWeight:600,letterSpacing:.3}}>{label.toUpperCase()}</div>
+                      <div key={label} style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
+                        <div style={{fontSize:17,fontWeight:900,fontFamily:"var(--mono)",color,lineHeight:1}}>{val}</div>
+                        <div style={{fontSize:9,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.3,textTransform:"uppercase"}}>{label}</div>
                       </div>
                     ))}
                   </div>
 
-                  {/* Day-of-week header */}
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:3}}>
-                    {DAY_LABELS.map(dl => (
-                      <div key={dl} style={{fontSize:9,textAlign:"center",color:"var(--text3)",fontWeight:700,letterSpacing:.5}}>{dl}</div>
-                    ))}
+                  {/* Goal compliance bar */}
+                  <div style={{marginBottom:16}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
+                      <span style={{fontSize:11,color:"var(--text2)",fontWeight:500}}>Cumplimiento de meta diaria</span>
+                      <span style={{fontSize:12,fontWeight:700,fontFamily:"var(--mono)",color:goalColor}}>{goalDays}/{activeCount} días</span>
+                    </div>
+                    <div style={{background:"var(--bg)",borderRadius:99,height:8,overflow:"hidden"}}>
+                      <div style={{width:`${goalPct}%`,height:"100%",borderRadius:99,background:goalColor,transition:"width .4s"}}/>
+                    </div>
+                    <div style={{fontSize:10,color:"var(--text3)",marginTop:4}}>
+                      {activeCount === 0 ? "Sin días activos aún" : `${goalPct}% de los días activos llegaste a $${dailyGoal}`}
+                    </div>
                   </div>
 
-                  {/* Calendar grid */}
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
-                    {padded.map((d, i) => {
-                      if (!d) return <div key={`pad-${i}`}/>;
+                  {/* Day chips */}
+                  <div style={{fontSize:10,fontWeight:700,color:"var(--text3)",letterSpacing:.8,textTransform:"uppercase",marginBottom:8}}>Días del ciclo</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                    {cycleDays.map((d, i) => {
                       const isToday  = d === todayStr;
+                      const isFuture = d > todayStr;
                       const isActive = !!byDate[d];
+                      const dayPay   = (byDate[d] || []).reduce((s, c) => s + c.pay, 0);
+                      const isGoal   = isActive && dayPay >= dailyGoal;
                       const dayNum   = parseInt(d.slice(3,5));
-                      // Short month label on the 1st of each month
-                      const isFirst  = dayNum === 1;
-                      const bgColor  = isActive ? "var(--cyan2)" : "var(--bg)";
-                      const border   = isToday  ? "2px solid var(--amber)" :
-                                       isActive  ? "1px solid var(--cyan2)" :
-                                                   "1px solid var(--border)";
+
+                      const bg = isGoal   ? "rgba(22,163,74,.15)"  :
+                                 isActive ? "rgba(0,153,170,.12)"  : "var(--bg)";
+                      const borderStyle = isToday
+                        ? `2px solid var(--amber)`
+                        : isGoal   ? "1px solid var(--green)"
+                        : isActive ? "1px solid var(--cyan2)"
+                        :            "1px solid var(--border)";
+                      const textColor = isGoal   ? "var(--green)"  :
+                                        isActive  ? "var(--cyan2)"  :
+                                        isToday   ? "var(--amber)"  : "var(--text3)";
                       return (
-                        <div key={d} title={d}
-                          style={{aspectRatio:"1",borderRadius:5,background:bgColor,border,
-                            display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
-                            position:"relative",cursor:"default"}}>
-                          {isFirst && (
-                            <div style={{position:"absolute",top:-10,left:0,right:0,fontSize:7,color:"var(--text3)",textAlign:"center",fontWeight:700}}>
-                              {["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][parseInt(d.slice(0,2))-1]}
-                            </div>
-                          )}
-                          <span style={{fontSize:8,fontWeight:isToday?800:600,fontFamily:"var(--mono)",
-                            color:isActive?"#fff":isToday?"var(--amber)":"var(--text3)",lineHeight:1}}>
-                            {dayNum}
-                          </span>
+                        <div key={d} title={isActive ? `$${dayPay.toFixed(2)}` : d}
+                          style={{
+                            width:28, height:28, borderRadius:6,
+                            background:bg, border:borderStyle,
+                            display:"flex", alignItems:"center", justifyContent:"center",
+                            fontFamily:"var(--mono)", fontSize:9, fontWeight:700,
+                            color:textColor, opacity: isFuture ? 0.35 : 1,
+                            cursor:"default",
+                          }}>
+                          {dayNum}
                         </div>
                       );
                     })}
                   </div>
 
                   {/* Legend */}
-                  <div style={{display:"flex",gap:14,marginTop:12,flexWrap:"wrap"}}>
-                    {[["Día activo","var(--cyan2)","filled"],["Hoy","var(--amber)","outlined"],["Sin llamadas","var(--border)","empty"]].map(([label,color,type])=>(
+                  <div style={{display:"flex",gap:12,marginTop:12,flexWrap:"wrap"}}>
+                    {[
+                      ["Meta cumplida", "rgba(22,163,74,.25)", "1px solid var(--green)"],
+                      ["Activo",        "rgba(0,153,170,.12)", "1px solid var(--cyan2)"],
+                      ["Sin actividad", "var(--bg)",           "1px solid var(--border)"],
+                      ["Hoy",           "transparent",         "2px solid var(--amber)"],
+                    ].map(([label, bg, border]) => (
                       <div key={label} style={{display:"flex",alignItems:"center",gap:5}}>
-                        <div style={{width:10,height:10,borderRadius:3,
-                          background:type==="filled"?color:type==="outlined"?"transparent":"var(--bg)",
-                          border:type==="outlined"?`2px solid ${color}`:`1px solid ${color}`}}/>
+                        <div style={{width:10,height:10,borderRadius:3,background:bg,border}}/>
                         <span style={{fontSize:10,color:"var(--text3)"}}>{label}</span>
                       </div>
                     ))}
