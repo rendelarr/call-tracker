@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Analytics } from '@vercel/analytics/react';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -1878,6 +1879,7 @@ export default function App() {
           );
         })}
       </div>
+      <Analytics />
     </div>
   );
 }
