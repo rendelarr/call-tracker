@@ -4,7 +4,37 @@ import { useState, useEffect, useRef } from "react";
 
 const STORAGE_KEY    = "call_tracker_data";
 const STORAGE_CONFIG = "call_tracker_config";
-const defaultConfig  = { dailyMoneyGoal: 30 };
+const defaultConfig  = { dailyMoneyGoal: 30, theme: "light" };
+
+const THEMES = {
+  light: {
+    name: "Claro", icon: "☀",
+    "--bg":"#eef0f3","--bg2":"#f8f9fb","--bg3":"#e4e7ec",
+    "--border":"#d0d5de","--border2":"#b8bfcc",
+    "--cyan":"#0099aa","--cyan2":"#007a8a",
+    "--green":"#16a34a","--green2":"#15803d",
+    "--amber":"#b45309","--red":"#dc2626",
+    "--text":"#1a2030","--text2":"#4a5568","--text3":"#8a95a8",
+  },
+  eva: {
+    name: "Eva", icon: "✦",
+    "--bg":"#1e1330","--bg2":"#2e1f4a","--bg3":"#160d24",
+    "--border":"#3a2660","--border2":"#4a3370",
+    "--cyan":"#9b72cf","--cyan2":"#7a50aa",
+    "--green":"#6b8c42","--green2":"#527032",
+    "--amber":"#b8834a","--red":"#c0504a",
+    "--text":"#e8d5ff","--text2":"#c4a882","--text3":"#7a6690",
+  },
+  dark: {
+    name: "Oscuro", icon: "◈",
+    "--bg":"#0f1117","--bg2":"#161b27","--bg3":"#0a0d13",
+    "--border":"#1c2030","--border2":"#252d40",
+    "--cyan":"#22d3ee","--cyan2":"#0ea5c9",
+    "--green":"#4ade80","--green2":"#22c55e",
+    "--amber":"#f59e0b","--red":"#f87171",
+    "--text":"#e2e8f4","--text2":"#8892aa","--text3":"#3a4260",
+  },
+};
 
 const RATES = [
   { value: 0.12, label: "Normal", color: "#7a8a9a", icon: "○" },
@@ -94,6 +124,13 @@ globalStyle.textContent = `
   ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
 `;
 document.head.appendChild(globalStyle);
+
+function applyTheme(themeKey) {
+  const t = THEMES[themeKey] || THEMES.light;
+  const root = document.documentElement;
+  Object.entries(t).forEach(([k, v]) => { if (k.startsWith("--")) root.style.setProperty(k, v); });
+  document.body.style.background = t["--bg"];
+}
 
 // ─── Style shortcuts ──────────────────────────────────────────────────────────
 
@@ -601,7 +638,7 @@ export default function App() {
       const d = localStorage.getItem(STORAGE_KEY);
       if (d) setCalls(JSON.parse(d));
       const c = localStorage.getItem(STORAGE_CONFIG);
-      if (c) { const cfg = JSON.parse(c); setConfig(cfg); setTempConfig(cfg); setTempGoal(cfg.dailyMoneyGoal || 30); }
+      if (c) { const cfg = JSON.parse(c); setConfig(cfg); setTempConfig(cfg); setTempGoal(cfg.dailyMoneyGoal || 30); applyTheme(cfg.theme || "light"); }
     } catch {}
   }, []);
 
@@ -977,7 +1014,34 @@ export default function App() {
       {showConfig && (
         <Modal onClose={() => { setShowConfig(false); resetImport(); }}>
           <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>IMPORTAR</div>
-          <div style={{fontSize:20,fontWeight:700,color:"var(--text)",marginBottom:20}}>Cargar llamadas</div>
+          <div style={{fontSize:20,fontWeight:700,color:"var(--text)",marginBottom:16}}>Cargar llamadas</div>
+
+          {/* Theme selector */}
+          <div style={{marginBottom:20}}>
+            <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:10}}>TEMA</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+              {Object.entries(THEMES).map(([key, t]) => {
+                const active = (config.theme || "light") === key;
+                return (
+                  <button key={key} onClick={() => {
+                    const nc = {...config, theme: key};
+                    setConfig(nc);
+                    applyTheme(key);
+                    try { localStorage.setItem(STORAGE_CONFIG, JSON.stringify(nc)); } catch {}
+                  }} style={{
+                    padding:"10px 6px", borderRadius:10, cursor:"pointer",
+                    border: active ? "2px solid var(--cyan)" : "1px solid var(--border2)",
+                    background: active ? "var(--cyan)18" : "var(--bg)",
+                    display:"flex", flexDirection:"column", alignItems:"center", gap:5,
+                    transition:"all .15s",
+                  }}>
+                    <span style={{fontSize:18}}>{t.icon}</span>
+                    <span style={{fontSize:11,fontWeight:700,color:active?"var(--cyan)":"var(--text2)"}}>{t.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           {importError && <div style={{background:"#fef2f2",border:"1px solid var(--red)44",borderRadius:8,padding:"10px 12px",color:"var(--red)",fontSize:12,marginBottom:12}}>{importError}</div>}
 
           {importStep === "idle" && (
