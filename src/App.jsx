@@ -23,6 +23,7 @@ const THEMES = {
     "--cyan":"#9b72cf","--cyan2":"#7a50aa",
     "--green":"#6b8c42","--green2":"#527032",
     "--amber":"#b8834a","--red":"#c0504a",
+    "--blue":"#818cf8","--purple":"#c084fc",
     "--text":"#e8d5ff","--text2":"#c4a882","--text3":"#7a6690",
   },
   dark: {
@@ -137,8 +138,8 @@ function applyTheme(themeKey) {
 const CC = {
   card:     { background:"var(--bg2)", borderRadius:16, border:"1px solid var(--border)" },
   cardGlow: (c) => ({ background:"var(--bg2)", borderRadius:16, border:`1px solid ${c}33`, boxShadow:`0 0 24px ${c}0d` }),
-  input:    { width:"100%", background:"var(--bg)", border:"1px solid var(--border2)", borderRadius:10, color:"var(--text)", padding:"10px 14px", fontSize:14, outline:"none" },
-  label:    { fontSize:10, color:"var(--text3)", fontWeight:700, letterSpacing:.8, textTransform:"uppercase", marginBottom:6, display:"block" },
+  input:    { width:"100%", background:"var(--bg)", border:"1px solid var(--border2)", borderRadius:10, color:"var(--text)", padding:"10px 14px", fontSize:15, outline:"none" },
+  label:    { fontSize:12, color:"var(--text3)", fontWeight:700, letterSpacing:.8, textTransform:"uppercase", marginBottom:6, display:"block" },
 };
 
 // ─── Date / time utilities ────────────────────────────────────────────────────
@@ -344,7 +345,7 @@ function TimePicker({ value, onChange, label }) {
   const { h, m, ap } = parseTimeStr(value);
   const sel = {
     background:"var(--bg)", border:"1px solid var(--border2)", borderRadius:8,
-    color:"var(--text)", fontFamily:"var(--mono)", fontWeight:700, fontSize:15,
+    color:"var(--text)", fontFamily:"var(--mono)", fontWeight:700, fontSize:16,
     padding:"10px 4px", cursor:"pointer", appearance:"none", WebkitAppearance:"none",
     textAlign:"center", width:"100%", outline:"none",
   };
@@ -353,7 +354,7 @@ function TimePicker({ value, onChange, label }) {
   const update = (nH, nM, nAp) => onChange(buildTimeStr({ h: nH, m: nM, ap: nAp }));
   return (
     <div>
-      {label && <label style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,display:"block",marginBottom:6}}>{label}</label>}
+      {label && <label style={{fontSize:12,color:"var(--text3)",fontWeight:700,letterSpacing:1,display:"block",marginBottom:6}}>{label}</label>}
       <div style={{display:"grid",gridTemplateColumns:"2fr 2fr 1.4fr",gap:5}}>
         <select value={h} onChange={e => update(e.target.value, m, ap)} style={sel}>
           {hours.map(hh => <option key={hh} value={hh}>{hh}</option>)}
@@ -365,7 +366,7 @@ function TimePicker({ value, onChange, label }) {
           background: ap === "AM" ? "var(--cyan)22" : "var(--amber)22",
           border: `1px solid ${ap === "AM" ? "var(--cyan)" : "var(--amber)"}`,
           borderRadius:8, color: ap === "AM" ? "var(--cyan)" : "var(--amber)",
-          fontWeight:800, fontSize:12, fontFamily:"var(--mono)",
+          fontWeight:800, fontSize:14, fontFamily:"var(--mono)",
           padding:"10px 2px", cursor:"pointer", width:"100%",
         }}>{ap}</button>
       </div>
@@ -386,14 +387,14 @@ function Modal({ onClose, children }) {
 }
 
 const Pill = ({ active, onClick, children, color = "var(--cyan)" }) => (
-  <button onClick={onClick} style={{padding:"6px 14px",borderRadius:99,border:"none",cursor:"pointer",fontWeight:600,fontSize:12,background:active?`${color}22`:"transparent",color:active?color:"var(--text2)",outline:active?`1px solid ${color}55`:"1px solid var(--border)",transition:"all .15s"}}>{children}</button>
+  <button onClick={onClick} style={{padding:"6px 14px",borderRadius:99,border:"none",cursor:"pointer",fontWeight:600,fontSize:14,background:active?`${color}22`:"transparent",color:active?color:"var(--text2)",outline:active?`1px solid ${color}55`:"1px solid var(--border)",transition:"all .15s"}}>{children}</button>
 );
 
 const StatBox = ({ label, value, color = "var(--cyan)", sub }) => (
   <div style={{...CC.card,padding:"14px 16px"}}>
-    <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:6}}>{label}</div>
+    <div style={{fontSize:12,color:"var(--text3)",fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:6}}>{label}</div>
     <div style={{fontSize:22,fontWeight:800,color,fontFamily:"var(--mono)",lineHeight:1}}>{value}</div>
-    {sub && <div style={{fontSize:11,color:"var(--text2)",marginTop:4}}>{sub}</div>}
+    {sub && <div style={{fontSize:13,color:"var(--text2)",marginTop:4}}>{sub}</div>}
   </div>
 );
 
@@ -411,12 +412,11 @@ function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
 
   // Single intensity color: cyan scale, light→dark as activity increases
   // Empty cells are clearly distinct (solid gray bg)
-  const PEAK_COLOR = "#0099aa"; // var(--cyan2) equivalent
+  const PEAK_COLOR = "var(--cyan)";
   const intensityBg = (intensity) => {
     if (intensity === 0) return "var(--bg3)";
-    // From a very light tint to solid color
     const alpha = 0.12 + intensity * 0.88;
-    return `rgba(0, 153, 170, ${alpha})`;
+    return `color-mix(in srgb, var(--cyan) ${Math.round(alpha * 100)}%, transparent)`;
   };
   const intensityText = (intensity) => intensity > 0.55 ? "#fff" : "var(--text2)";
 
@@ -439,8 +439,8 @@ function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
       {/* Header */}
       <div style={{marginBottom:12}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>Actividad por hora</div>
-          <div style={{fontSize:11,color:"var(--text2)",fontFamily:"var(--mono)"}}>{totalMins > 0 ? `${totalMins}m` : ""}</div>
+          <div style={{fontSize:15,fontWeight:700,color:"var(--text)"}}>Actividad por hora</div>
+          <div style={{fontSize:13,color:"var(--text2)",fontFamily:"var(--mono)"}}>{totalMins > 0 ? `${totalMins}m` : ""}</div>
         </div>
 
         {/* Top 3 peaks */}
@@ -448,19 +448,19 @@ function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
           <div style={{display:"flex",gap:8,marginTop:10}}>
             {top3.map((h, i) => (
               <div key={h} style={{
-                background: i===0 ? "rgba(0,153,170,0.12)" : "var(--bg)",
-                border: i===0 ? "1px solid rgba(0,153,170,0.4)" : "1px solid var(--border)",
+                background: i===0 ? "color-mix(in srgb, var(--cyan) 12%, transparent)" : "var(--bg)",
+                border: i===0 ? "1px solid color-mix(in srgb, var(--cyan) 40%, transparent)" : "1px solid var(--border)",
                 borderRadius:8, padding:"6px 10px", display:"flex", alignItems:"center", gap:6,
               }}>
-                <span style={{fontSize:14,lineHeight:1}}>{medals[i]}</span>
+                <span style={{fontSize:15,lineHeight:1}}>{medals[i]}</span>
                 <div>
-                  <div style={{fontSize:13,fontWeight:800,fontFamily:"var(--mono)",color:i===0?PEAK_COLOR:"var(--text)",lineHeight:1}}>{fmtH(h)}</div>
-                  <div style={{fontSize:10,color:"var(--text3)",marginTop:1}}>{heatmap[h]}m</div>
+                  <div style={{fontSize:15,fontWeight:800,fontFamily:"var(--mono)",color:i===0?PEAK_COLOR:"var(--text)",lineHeight:1}}>{fmtH(h)}</div>
+                  <div style={{fontSize:12,color:"var(--text3)",marginTop:1}}>{heatmap[h]}m</div>
                 </div>
               </div>
             ))}
             {top3.length < 2 && (
-              <div style={{alignSelf:"center",fontSize:11,color:"var(--text3)"}}>Acumula más llamadas para ver el ranking completo</div>
+              <div style={{alignSelf:"center",fontSize:13,color:"var(--text3)"}}>Acumula más llamadas para ver el ranking completo</div>
             )}
           </div>
         )}
@@ -477,7 +477,7 @@ function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
           style={{
             width:"100%", background:"var(--bg)", border:"1px solid var(--border2)",
             borderRadius:8, color:"var(--text)", padding:"7px 12px",
-            fontSize:12, outline:"none", cursor:"pointer", fontFamily:"var(--sans)",
+            fontSize:14, outline:"none", cursor:"pointer", fontFamily:"var(--sans)",
           }}>
           <option value="cycle">Ciclo actual</option>
           <option value="all">Todos los ciclos</option>
@@ -491,7 +491,7 @@ function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
 
       {/* Grid */}
       {totalMins === 0 ? (
-        <div style={{textAlign:"center",padding:"24px 0",color:"var(--text3)",fontSize:12}}>
+        <div style={{textAlign:"center",padding:"24px 0",color:"var(--text3)",fontSize:14}}>
           Sin datos para el período seleccionado
         </div>
       ) : (
@@ -511,25 +511,25 @@ function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
                   style={{
                     borderRadius:6, height:48, position:"relative", cursor:"default",
                     background: intensityBg(intensity),
-                    border: peakRank === 0 ? `2px solid ${PEAK_COLOR}` :
-                            peakRank === 1 ? `1.5px solid rgba(0,153,170,0.5)` :
-                            peakRank === 2 ? `1px solid rgba(0,153,170,0.3)` :
+                    border: peakRank === 0 ? `2px solid var(--cyan)` :
+                            peakRank === 1 ? `1.5px solid color-mix(in srgb, var(--cyan) 50%, transparent)` :
+                            peakRank === 2 ? `1px solid color-mix(in srgb, var(--cyan) 30%, transparent)` :
                             isNow          ? "1px solid var(--border2)" :
                                              "1px solid transparent",
-                    boxShadow: peakRank === 0 ? `0 0 8px rgba(0,153,170,0.35)` : "none",
+                    boxShadow: peakRank === 0 ? `0 0 8px color-mix(in srgb, var(--cyan) 35%, transparent)` : "none",
                   }}>
                   {/* Fill bar from bottom */}
                   {val > 0 && (
                     <div style={{
                       position:"absolute", bottom:0, left:0, right:0,
                       height:`${Math.max(6, intensity * 100)}%`,
-                      background:`rgba(0,153,170,${0.2 + intensity * 0.3})`,
+                      background:`color-mix(in srgb, var(--cyan) ${Math.round((0.2 + intensity * 0.3) * 100)}%, transparent)`,
                       borderRadius:"0 0 5px 5px",
                     }}/>
                   )}
                   {/* Peak medal */}
                   {peakRank >= 0 && (
-                    <div style={{position:"absolute",top:2,left:"50%",transform:"translateX(-50%)",fontSize:9,lineHeight:1}}>
+                    <div style={{position:"absolute",top:2,left:"50%",transform:"translateX(-50%)",fontSize:10,lineHeight:1}}>
                       {medals[peakRank]}
                     </div>
                   )}
@@ -545,7 +545,7 @@ function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
           {/* Hour labels */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(24,1fr)",gap:3,marginTop:3,marginBottom:8}}>
             {HOURS.map(h => (
-              <div key={h} style={{fontSize:8,textAlign:"center",fontFamily:"var(--mono)",lineHeight:1,
+              <div key={h} style={{fontSize:9,textAlign:"center",fontFamily:"var(--mono)",lineHeight:1,
                 color: top3[0]===h ? PEAK_COLOR : h===nowH ? "var(--cyan2)" : "var(--text3)",
                 fontWeight: top3[0]===h || h===nowH ? 700 : 400}}>
                 {hourLabel(h)}
@@ -556,7 +556,7 @@ function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
           {/* Tooltip */}
           <div style={{minHeight:30,marginBottom:8}}>
             {hoveredH !== null && (
-              <div style={{background:"var(--bg)",border:"1px solid var(--border2)",borderRadius:8,padding:"5px 12px",fontSize:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{background:"var(--bg)",border:"1px solid var(--border2)",borderRadius:8,padding:"5px 12px",fontSize:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <span style={{fontWeight:700,color:PEAK_COLOR}}>{hoveredH%12||12}:00 {hoveredH<12?"AM":"PM"}</span>
                 <span style={{fontFamily:"var(--mono)",color:"var(--text)"}}>{heatmap[hoveredH] > 0 ? `${heatmap[hoveredH]} min` : "sin actividad"}</span>
               </div>
@@ -565,16 +565,70 @@ function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
 
           {/* Intensity legend */}
           <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <span style={{fontSize:10,color:"var(--text3)"}}>Menos</span>
+            <span style={{fontSize:12,color:"var(--text3)"}}>Menos</span>
             <div style={{display:"flex",gap:2}}>
               {[0.05,0.25,0.5,0.75,1].map(v => (
                 <div key={v} style={{width:16,height:10,borderRadius:3,background:intensityBg(v)}}/>
               ))}
             </div>
-            <span style={{fontSize:10,color:"var(--text3)"}}>Más actividad</span>
+            <span style={{fontSize:12,color:"var(--text3)"}}>Más actividad</span>
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+// ─── Mochi Logo ───────────────────────────────────────────────────────────────
+
+function MochiLogo({ size = 4 }) {
+  const _ = null;
+  const W = "#f5e6ff";
+  const P = "#c084fc";
+  const D = "#7c3aed";
+  const L = "#e9d5ff";
+  const K = "#1a0a2e";
+  const R = "#f9a8d4";
+  const H = "#4c1d95";
+  const G = "#a78bfa";
+
+  const grid = [
+    [_,_,_,_,_,_,_,H,H,H,H,H,H,H,H,H,H,_,_,_,_,_,_,_],
+    [_,_,_,_,_,_,H,H,_,_,_,_,_,_,_,_,H,H,_,_,_,_,_,_],
+    [_,_,_,P,P,_,H,H,_,_,_,_,_,_,_,_,H,H,_,P,P,_,_,_],
+    [_,_,P,P,P,P,H,H,_,_,_,_,_,_,_,_,H,H,P,P,P,P,_,_],
+    [_,_,P,R,P,P,_,_,_,_,_,_,_,_,_,_,_,_,P,P,R,P,_,_],
+    [_,_,P,P,P,_,_,_,_,_,_,_,_,_,_,_,_,_,_,P,P,P,_,_],
+    [_,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,_],
+    [D,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,D],
+    [D,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,D],
+    [D,W,W,L,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,L,W,W,D],
+    [D,W,W,W,W,K,K,W,W,W,W,W,W,W,W,W,W,K,K,W,W,W,W,D],
+    [D,W,W,W,W,K,K,W,W,W,W,W,W,W,W,W,W,K,K,W,W,W,W,D],
+    [D,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,D],
+    [D,W,W,W,W,W,W,W,W,W,R,W,W,R,W,W,W,W,W,W,W,W,W,D],
+    [D,W,W,W,W,W,W,W,W,W,W,R,R,W,W,W,W,W,W,W,W,W,W,D],
+    [D,W,W,W,R,W,W,W,W,W,W,W,W,W,W,W,W,W,W,R,W,W,W,D],
+    [D,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,D],
+    [D,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,D],
+    [D,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,D],
+    [D,W,G,G,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,G,G,W,D],
+    [_,D,G,G,G,W,W,W,W,W,W,W,W,W,W,W,W,W,W,G,G,G,D,_],
+    [_,_,D,D,G,G,W,W,W,W,W,W,W,W,W,W,W,W,G,G,D,D,_,_],
+    [_,_,_,_,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D,_,_,_,_],
+    [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
+  ];
+
+  return (
+    <div style={{
+      display:"grid",
+      gridTemplateColumns:`repeat(24,${size}px)`,
+      gridTemplateRows:`repeat(24,${size}px)`,
+      imageRendering:"pixelated",
+    }}>
+      {grid.flat().map((color, i) => (
+        <div key={i} style={{width:size,height:size,background:color||"transparent"}}/>
+      ))}
     </div>
   );
 }
@@ -592,6 +646,7 @@ export default function App() {
   const [cycleView,      setCycleView]      = useState("current");
   const [expandedDays,   setExpandedDays]   = useState(new Set());
   const [heatmapScope,   setHeatmapScope]   = useState("cycle"); // "cycle" | "all" | cycle index (number)
+  const [rhythmView,     setRhythmView]     = useState("today"); // "today" | "cycle"
 
   // Modals
   const [showGoal,       setShowGoal]       = useState(false);
@@ -953,7 +1008,7 @@ export default function App() {
 
       {/* Toast */}
       {toast && (
-        <div style={{position:"fixed",top:20,left:"50%",transform:"translateX(-50%)",background:"var(--bg3)",border:"1px solid var(--cyan)",color:"var(--cyan)",padding:"10px 20px",borderRadius:99,fontWeight:600,zIndex:999,fontSize:13,whiteSpace:"nowrap",animation:"toastIn .25s ease",boxShadow:"0 2px 12px rgba(0,0,0,0.12)"}}>
+        <div style={{position:"fixed",top:20,left:"50%",transform:"translateX(-50%)",background:"var(--bg3)",border:"1px solid var(--cyan)",color:"var(--cyan)",padding:"10px 20px",borderRadius:99,fontWeight:600,zIndex:999,fontSize:15,whiteSpace:"nowrap",animation:"toastIn .25s ease",boxShadow:"0 2px 12px rgba(0,0,0,0.12)"}}>
           {toast}
         </div>
       )}
@@ -964,28 +1019,34 @@ export default function App() {
           <div style={{display:"flex",alignItems:"center",gap:12}}>
             <div style={{width:8,height:8,borderRadius:"50%",background:"var(--green2)",animation:"pulse 1s infinite"}}/>
             <div>
-              <div style={{fontSize:10,color:"var(--green2)",fontWeight:700,letterSpacing:1}}>EN LLAMADA</div>
+              <div style={{fontSize:12,color:"var(--green2)",fontWeight:700,letterSpacing:1}}>EN LLAMADA</div>
               <div style={{fontSize:24,fontWeight:800,fontFamily:"var(--mono)",color:"var(--green2)",lineHeight:1}}>{fmtTime(liveSeconds)}</div>
             </div>
           </div>
           <div style={{display:"flex",gap:8}}>
-            <button className="action-btn" onClick={stopLiveCall}   style={{background:"var(--green2)",border:"none",borderRadius:8,color:"#fff",padding:"8px 16px",fontWeight:800,cursor:"pointer",fontSize:13}}>✓ Guardar</button>
-            <button className="action-btn" onClick={cancelLiveCall} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:8,color:"var(--text2)",padding:"8px 14px",fontWeight:600,cursor:"pointer",fontSize:13}}>✕</button>
+            <button className="action-btn" onClick={stopLiveCall}   style={{background:"var(--green2)",border:"none",borderRadius:8,color:"#fff",padding:"8px 16px",fontWeight:800,cursor:"pointer",fontSize:15}}>✓ Guardar</button>
+            <button className="action-btn" onClick={cancelLiveCall} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:8,color:"var(--text2)",padding:"8px 14px",fontWeight:600,cursor:"pointer",fontSize:15}}>✕</button>
           </div>
         </div>
       )}
 
       {/* Header */}
       <div style={{padding:"20px 20px 0",display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:liveActive?56:0}}>
-        <div>
-          <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1.5,fontFamily:"var(--mono)"}}>CALL TRACKER</div>
-          <div style={{fontSize:11,color:"var(--text2)",marginTop:1,fontFamily:"var(--mono)"}}>{todayStr}</div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <MochiLogo size={2}/>
+          <div>
+            <div style={{display:"flex",alignItems:"baseline",gap:6}}>
+              <div style={{fontSize:14,color:"var(--text)",fontWeight:800,letterSpacing:1,fontFamily:"var(--mono)"}}>MOCHI</div>
+              <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,fontFamily:"var(--mono)"}}>CALL TRACKER</div>
+            </div>
+            <div style={{fontSize:11,color:"var(--text3)",marginTop:1,fontFamily:"var(--mono)"}}>{todayStr}</div>
+          </div>
         </div>
         <div style={{display:"flex",gap:8}}>
-          <button onClick={() => { setTempGoal(config.dailyMoneyGoal); setShowGoal(true); }} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:8,color:"var(--text2)",padding:"7px 12px",cursor:"pointer",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
+          <button onClick={() => { setTempGoal(config.dailyMoneyGoal); setShowGoal(true); }} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:8,color:"var(--text2)",padding:"7px 12px",cursor:"pointer",fontSize:14,fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
             <span style={{color:"var(--amber)"}}>◎</span> Meta
           </button>
-          <button onClick={() => setShowConfig(true)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:8,color:"var(--text2)",padding:"7px 12px",cursor:"pointer",fontSize:15}}>⚙</button>
+          <button onClick={() => setShowConfig(true)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:8,color:"var(--text2)",padding:"7px 12px",cursor:"pointer",fontSize:16}}>⚙</button>
         </div>
       </div>
 
@@ -994,7 +1055,7 @@ export default function App() {
       {/* Goal */}
       {showGoal && (
         <Modal onClose={() => setShowGoal(false)}>
-          <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>META DIARIA</div>
+          <div style={{fontSize:12,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>META DIARIA</div>
           <div style={{fontSize:20,fontWeight:700,color:"var(--text)",marginBottom:20}}>¿Cuánto quieres ganar hoy?</div>
           <label style={CC.label}>Monto en dólares</label>
           <div style={{position:"relative",marginBottom:20}}>
@@ -1004,8 +1065,8 @@ export default function App() {
           </div>
           <div style={{display:"flex",gap:8}}>
             <button className="btn-primary" onClick={() => { const val=parseFloat(tempGoal)||30; const nc={...config,dailyMoneyGoal:val}; setConfig(nc); setTempConfig(nc); try{localStorage.setItem(STORAGE_CONFIG,JSON.stringify(nc));}catch{} setShowGoal(false); showToast("🎯 Meta: $"+val.toFixed(2)); }}
-              style={{flex:1,background:"var(--amber)",border:"none",borderRadius:10,color:"#000",padding:"12px",fontWeight:800,cursor:"pointer",fontSize:14}}>Guardar</button>
-            <button onClick={() => setShowGoal(false)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"12px 16px",cursor:"pointer",fontSize:14}}>✕</button>
+              style={{flex:1,background:"var(--amber)",border:"none",borderRadius:10,color:"#000",padding:"12px",fontWeight:800,cursor:"pointer",fontSize:15}}>Guardar</button>
+            <button onClick={() => setShowGoal(false)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"12px 16px",cursor:"pointer",fontSize:15}}>✕</button>
           </div>
         </Modal>
       )}
@@ -1013,12 +1074,12 @@ export default function App() {
       {/* Config / Import */}
       {showConfig && (
         <Modal onClose={() => { setShowConfig(false); resetImport(); }}>
-          <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>IMPORTAR</div>
+          <div style={{fontSize:12,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>IMPORTAR</div>
           <div style={{fontSize:20,fontWeight:700,color:"var(--text)",marginBottom:16}}>Cargar llamadas</div>
 
           {/* Theme selector */}
           <div style={{marginBottom:20}}>
-            <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:10}}>TEMA</div>
+            <div style={{fontSize:12,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:10}}>TEMA</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
               {Object.entries(THEMES).map(([key, t]) => {
                 const active = (config.theme || "light") === key;
@@ -1036,29 +1097,29 @@ export default function App() {
                     transition:"all .15s",
                   }}>
                     <span style={{fontSize:18}}>{t.icon}</span>
-                    <span style={{fontSize:11,fontWeight:700,color:active?"var(--cyan)":"var(--text2)"}}>{t.name}</span>
+                    <span style={{fontSize:13,fontWeight:700,color:active?"var(--cyan)":"var(--text2)"}}>{t.name}</span>
                   </button>
                 );
               })}
             </div>
           </div>
-          {importError && <div style={{background:"#fef2f2",border:"1px solid var(--red)44",borderRadius:8,padding:"10px 12px",color:"var(--red)",fontSize:12,marginBottom:12}}>{importError}</div>}
+          {importError && <div style={{background:"#fef2f2",border:"1px solid var(--red)44",borderRadius:8,padding:"10px 12px",color:"var(--red)",fontSize:14,marginBottom:12}}>{importError}</div>}
 
           {importStep === "idle" && (
             <div>
-              <button onClick={() => fileRef.current.click()} style={{width:"100%",background:"var(--bg)",border:"2px dashed var(--border2)",borderRadius:12,color:"var(--text2)",padding:"28px",fontWeight:600,cursor:"pointer",fontSize:13,textAlign:"center",marginBottom:16}}>
+              <button onClick={() => fileRef.current.click()} style={{width:"100%",background:"var(--bg)",border:"2px dashed var(--border2)",borderRadius:12,color:"var(--text2)",padding:"28px",fontWeight:600,cursor:"pointer",fontSize:15,textAlign:"center",marginBottom:16}}>
                 <div style={{fontSize:28,marginBottom:8}}>📂</div>
                 <div>Seleccionar CSV o Excel</div>
-                <div style={{fontSize:11,color:"var(--text3)",marginTop:4}}>Arrastra o haz clic</div>
+                <div style={{fontSize:13,color:"var(--text3)",marginTop:4}}>Arrastra o haz clic</div>
               </button>
               {calls.length > 0 && (
                 <div>
-                  <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:10}}>EXPORTAR · {calls.length} llamadas</div>
+                  <div style={{fontSize:12,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:10}}>EXPORTAR · {calls.length} llamadas</div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                    <button className="btn-primary" onClick={exportCSV} style={{background:"var(--bg)",border:"1px solid var(--cyan)44",borderRadius:10,color:"var(--cyan)",padding:"12px 8px",fontWeight:700,cursor:"pointer",fontSize:13,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                    <button className="btn-primary" onClick={exportCSV} style={{background:"var(--bg)",border:"1px solid var(--cyan)44",borderRadius:10,color:"var(--cyan)",padding:"12px 8px",fontWeight:700,cursor:"pointer",fontSize:15,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
                       <span style={{fontSize:20}}>📄</span><span>CSV</span>
                     </button>
-                    <button className="btn-primary" onClick={exportXLSX} style={{background:"var(--bg)",border:"1px solid var(--green)44",borderRadius:10,color:"var(--green)",padding:"12px 8px",fontWeight:700,cursor:"pointer",fontSize:13,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                    <button className="btn-primary" onClick={exportXLSX} style={{background:"var(--bg)",border:"1px solid var(--green)44",borderRadius:10,color:"var(--green)",padding:"12px 8px",fontWeight:700,cursor:"pointer",fontSize:15,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
                       <span style={{fontSize:20}}>📊</span><span>Excel</span>
                     </button>
                   </div>
@@ -1070,15 +1131,15 @@ export default function App() {
           {importStep === "preview" && importStats && (
             <div>
               <div style={{background:"var(--bg)",borderRadius:10,padding:14,marginBottom:14}}>
-                <div style={{color:"var(--text)",fontWeight:700,marginBottom:8,fontSize:13}}>{importFileName}</div>
+                <div style={{color:"var(--text)",fontWeight:700,marginBottom:8,fontSize:15}}>{importFileName}</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,textAlign:"center"}}>
-                  <div><div style={{fontSize:18,fontWeight:800,fontFamily:"var(--mono)",color:"var(--cyan)"}}>{importStats.total}</div><div style={{fontSize:10,color:"var(--text3)"}}>llamadas</div></div>
-                  <div><div style={{fontSize:18,fontWeight:800,fontFamily:"var(--mono)",color:"var(--green)"}}>${importStats.totalPay.toFixed(2)}</div><div style={{fontSize:10,color:"var(--text3)"}}>total</div></div>
-                  <div><div style={{fontSize:18,fontWeight:800,fontFamily:"var(--mono)",color:"var(--blue)"}}>{importStats.totalMins}m</div><div style={{fontSize:10,color:"var(--text3)"}}>minutos</div></div>
+                  <div><div style={{fontSize:18,fontWeight:800,fontFamily:"var(--mono)",color:"var(--cyan)"}}>{importStats.total}</div><div style={{fontSize:12,color:"var(--text3)"}}>llamadas</div></div>
+                  <div><div style={{fontSize:18,fontWeight:800,fontFamily:"var(--mono)",color:"var(--green)"}}>${importStats.totalPay.toFixed(2)}</div><div style={{fontSize:12,color:"var(--text3)"}}>total</div></div>
+                  <div><div style={{fontSize:18,fontWeight:800,fontFamily:"var(--mono)",color:"var(--blue)"}}>{importStats.totalMins}m</div><div style={{fontSize:12,color:"var(--text3)"}}>minutos</div></div>
                 </div>
               </div>
               <div style={{display:"flex",gap:8}}>
-                <button className="btn-primary" onClick={() => { confirmImport(); setShowConfig(false); }} style={{flex:1,background:"var(--green2)",border:"none",borderRadius:10,color:"var(--text)",padding:"12px",fontWeight:700,cursor:"pointer",fontSize:14}}>✅ Confirmar</button>
+                <button className="btn-primary" onClick={() => { confirmImport(); setShowConfig(false); }} style={{flex:1,background:"var(--green2)",border:"none",borderRadius:10,color:"var(--text)",padding:"12px",fontWeight:700,cursor:"pointer",fontSize:15}}>✅ Confirmar</button>
                 <button onClick={resetImport} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"12px 16px",cursor:"pointer"}}>✕</button>
               </div>
             </div>
@@ -1098,7 +1159,7 @@ export default function App() {
       {/* Manual / Live */}
       {showManual && (
         <Modal onClose={() => { setShowManual(false); setLiveStart(null); }}>
-          <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>NUEVA LLAMADA</div>
+          <div style={{fontSize:12,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>NUEVA LLAMADA</div>
           <div style={{fontSize:18,fontWeight:700,color:"var(--text)",marginBottom:16}}>{liveStart ? "Guardar llamada grabada" : "Agregar manualmente"}</div>
           <div style={{marginBottom:14}}>
             <label style={CC.label}>Tarifa activa</label>
@@ -1106,15 +1167,15 @@ export default function App() {
               {RATES.map(r => { const active = activeRate === r.value; return (
                 <button key={r.value} className="rate-btn" onClick={() => { setActiveRate(r.value); setManualForm(p => ({...p, pay: String(parseFloat((parseInt(p.duration||0) * r.value).toFixed(2)))})); }}
                   style={{padding:"8px 10px",borderRadius:8,border:"none",cursor:"pointer",background:active?`${r.color}22`:"var(--bg)",outline:active?`1px solid ${r.color}88`:"1px solid var(--border)",display:"flex",alignItems:"center",gap:8}}>
-                  <span style={{color:r.color,fontSize:14}}>{r.icon}</span>
-                  <div><div style={{fontWeight:800,fontSize:12,color:active?r.color:"var(--text)",fontFamily:"var(--mono)"}}>${r.value}/min</div><div style={{fontSize:10,color:"var(--text3)"}}>{r.label}</div></div>
+                  <span style={{color:r.color,fontSize:15}}>{r.icon}</span>
+                  <div><div style={{fontWeight:800,fontSize:14,color:active?r.color:"var(--text)",fontFamily:"var(--mono)"}}>${r.value}/min</div><div style={{fontSize:12,color:"var(--text3)"}}>{r.label}</div></div>
                 </button>
               );})}
             </div>
           </div>
           <div style={{marginBottom:12}}>
             <label style={CC.label}>ID Cliente</label>
-            <input type="text" placeholder="Opcional" value={manualForm.customerId} onChange={e => handleManualChange("customerId", e.target.value)} style={{...CC.input,fontSize:13}}/>
+            <input type="text" placeholder="Opcional" value={manualForm.customerId} onChange={e => handleManualChange("customerId", e.target.value)} style={{...CC.input,fontSize:15}}/>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
             <TimePicker label="HORA INICIO" value={manualForm.startTime} onChange={v => handleManualChange("startTime", v)}/>
@@ -1122,14 +1183,14 @@ export default function App() {
           </div>
           <div style={{marginBottom:12}}>
             <label style={CC.label}>Minutos</label>
-            <input type="number" placeholder="15" value={manualForm.duration} onChange={e => handleManualChange("duration", e.target.value)} style={{...CC.input,fontSize:15,fontFamily:"var(--mono)",fontWeight:700,color:"var(--cyan)"}}/>
+            <input type="number" placeholder="15" value={manualForm.duration} onChange={e => handleManualChange("duration", e.target.value)} style={{...CC.input,fontSize:16,fontFamily:"var(--mono)",fontWeight:700,color:"var(--cyan)"}}/>
           </div>
           <div style={{marginBottom:16}}>
             <label style={CC.label}>Pago ($)</label>
             <input type="number" step="0.01" value={manualForm.pay} onChange={e => setManualForm(p => ({...p, pay: e.target.value}))} style={{...CC.input,fontSize:20,fontFamily:"var(--mono)",fontWeight:800,color:"var(--green)",border:"1px solid var(--green)33"}}/>
           </div>
           <div style={{display:"flex",gap:8}}>
-            <button className="btn-primary" onClick={submitManual} style={{flex:1,background:"var(--green2)",border:"none",borderRadius:10,color:"var(--text)",padding:"12px",fontWeight:700,cursor:"pointer",fontSize:14}}>+ Agregar</button>
+            <button className="btn-primary" onClick={submitManual} style={{flex:1,background:"var(--green2)",border:"none",borderRadius:10,color:"var(--text)",padding:"12px",fontWeight:700,cursor:"pointer",fontSize:15}}>+ Agregar</button>
             <button onClick={() => { setShowManual(false); setLiveStart(null); }} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"12px 16px",cursor:"pointer"}}>✕</button>
           </div>
         </Modal>
@@ -1138,7 +1199,7 @@ export default function App() {
       {/* Paste */}
       {showPaste && (
         <Modal onClose={() => { setShowPaste(false); setParsed(null); setRawText(""); }}>
-          <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>PEGAR DATOS</div>
+          <div style={{fontSize:12,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>PEGAR DATOS</div>
           <div style={{fontSize:18,fontWeight:700,color:"var(--text)",marginBottom:16}}>Pegar llamada</div>
           <div style={{marginBottom:14}}>
             <label style={CC.label}>Tarifa activa</label>
@@ -1146,32 +1207,32 @@ export default function App() {
               {RATES.map(r => { const active = activeRate === r.value; return (
                 <button key={r.value} className="rate-btn" onClick={() => setActiveRate(r.value)}
                   style={{padding:"8px 10px",borderRadius:8,border:"none",cursor:"pointer",background:active?`${r.color}22`:"var(--bg)",outline:active?`1px solid ${r.color}88`:"1px solid var(--border)",display:"flex",alignItems:"center",gap:8}}>
-                  <span style={{color:r.color,fontSize:14}}>{r.icon}</span>
-                  <div><div style={{fontWeight:800,fontSize:12,color:active?r.color:"var(--text)",fontFamily:"var(--mono)"}}>${r.value}/min</div><div style={{fontSize:10,color:"var(--text3)"}}>{r.label}</div></div>
+                  <span style={{color:r.color,fontSize:15}}>{r.icon}</span>
+                  <div><div style={{fontWeight:800,fontSize:14,color:active?r.color:"var(--text)",fontFamily:"var(--mono)"}}>${r.value}/min</div><div style={{fontSize:12,color:"var(--text3)"}}>{r.label}</div></div>
                 </button>
               );})}
             </div>
           </div>
           <label style={CC.label}>Datos de la llamada</label>
           <textarea value={rawText} onChange={e => setRawText(e.target.value)} placeholder="191403/09/202608:17 AM3YesNo$0.36"
-            style={{...CC.input,height:70,resize:"vertical",fontSize:12,fontFamily:"var(--mono)",marginBottom:8}}/>
-          {parseError && <div style={{color:"var(--red)",fontSize:12,marginBottom:8}}>{parseError}</div>}
-          {!parsed && <button className="btn-primary" onClick={handleParse} style={{width:"100%",background:"var(--cyan)",border:"none",borderRadius:10,color:"#000",padding:"11px",fontWeight:700,cursor:"pointer",fontSize:14}}>Interpretar</button>}
+            style={{...CC.input,height:70,resize:"vertical",fontSize:14,fontFamily:"var(--mono)",marginBottom:8}}/>
+          {parseError && <div style={{color:"var(--red)",fontSize:14,marginBottom:8}}>{parseError}</div>}
+          {!parsed && <button className="btn-primary" onClick={handleParse} style={{width:"100%",background:"var(--cyan)",border:"none",borderRadius:10,color:"#000",padding:"11px",fontWeight:700,cursor:"pointer",fontSize:15}}>Interpretar</button>}
           {parsed && (
             <div style={{background:"var(--bg)",borderRadius:10,padding:14,border:`1px solid ${parsed.billable==="Yes"?"var(--green)44":"var(--red)44"}`}}>
-              <div style={{fontWeight:700,color:parsed.billable==="Yes"?"var(--green)":"var(--red)",marginBottom:10,fontSize:13}}>{parsed.billable==="Yes"?"✅ Billable":"⛔ No Billable"}</div>
+              <div style={{fontWeight:700,color:parsed.billable==="Yes"?"var(--green)":"var(--red)",marginBottom:10,fontSize:15}}>{parsed.billable==="Yes"?"✅ Billable":"⛔ No Billable"}</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:12}}>
                 {(() => {
                   const callEnd = timeToMins(parsed.callStart) !== null ? minsToTime(timeToMins(parsed.callStart) + parsed.duration) : "—";
                   return [["Cliente",parsed.customerId],["Fecha",parsed.date],["Inicio",parsed.callStart],["Fin",callEnd],["Duración",`${parsed.duration}m`],["Pago",`$${parsed.pay.toFixed(2)}`]]
                     .map(([k, v]) => (
-                      <div key={k}><div style={{fontSize:10,color:"var(--text3)"}}>{k}</div><div style={{fontWeight:700,fontSize:13,fontFamily:"var(--mono)",color:"var(--text)"}}>{v}</div></div>
+                      <div key={k}><div style={{fontSize:12,color:"var(--text3)"}}>{k}</div><div style={{fontWeight:700,fontSize:15,fontFamily:"var(--mono)",color:"var(--text)"}}>{v}</div></div>
                     ));
                 })()}
               </div>
               {parsed.billable === "Yes"
-                ? <button className="btn-primary" onClick={() => { handleAdd(); setShowPaste(false); }} style={{width:"100%",background:"var(--green2)",border:"none",borderRadius:9,color:"var(--text)",padding:"10px",fontWeight:700,cursor:"pointer",fontSize:14}}>➕ Agregar</button>
-                : <button onClick={() => { setParsed(null); setRawText(""); }} style={{width:"100%",background:"transparent",border:"1px solid var(--border2)",borderRadius:9,color:"var(--text2)",padding:"10px",fontWeight:700,cursor:"pointer",fontSize:14}}>Descartar</button>
+                ? <button className="btn-primary" onClick={() => { handleAdd(); setShowPaste(false); }} style={{width:"100%",background:"var(--green2)",border:"none",borderRadius:9,color:"var(--text)",padding:"10px",fontWeight:700,cursor:"pointer",fontSize:15}}>➕ Agregar</button>
+                : <button onClick={() => { setParsed(null); setRawText(""); }} style={{width:"100%",background:"transparent",border:"1px solid var(--border2)",borderRadius:9,color:"var(--text2)",padding:"10px",fontWeight:700,cursor:"pointer",fontSize:15}}>Descartar</button>
               }
             </div>
           )}
@@ -1181,11 +1242,11 @@ export default function App() {
       {/* Edit */}
       {editingId && (
         <Modal onClose={() => setEditingId(null)}>
-          <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>EDITAR LLAMADA</div>
+          <div style={{fontSize:12,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>EDITAR LLAMADA</div>
           <div style={{fontSize:18,fontWeight:700,color:"var(--text)",marginBottom:16}}>Editar llamada</div>
           <div style={{marginBottom:12}}>
             <label style={CC.label}>ID Cliente</label>
-            <input type="text" value={editForm.customerId||""} onChange={e => handleEditChange("customerId", e.target.value)} style={{...CC.input,fontSize:13}}/>
+            <input type="text" value={editForm.customerId||""} onChange={e => handleEditChange("customerId", e.target.value)} style={{...CC.input,fontSize:15}}/>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
             <TimePicker label="HORA INICIO" value={editForm.callStart} onChange={v => handleEditChange("callStart", v)}/>
@@ -1193,14 +1254,14 @@ export default function App() {
           </div>
           <div style={{marginBottom:12}}>
             <label style={CC.label}>Minutos</label>
-            <input type="number" value={editForm.duration||""} onChange={e => handleEditChange("duration", e.target.value)} style={{...CC.input,fontSize:15,fontFamily:"var(--mono)",fontWeight:700,color:"var(--cyan)"}}/>
+            <input type="number" value={editForm.duration||""} onChange={e => handleEditChange("duration", e.target.value)} style={{...CC.input,fontSize:16,fontFamily:"var(--mono)",fontWeight:700,color:"var(--cyan)"}}/>
           </div>
           <div style={{marginBottom:16}}>
             <label style={CC.label}>Pago ($)</label>
             <input type="number" step="0.01" value={editForm.pay||""} onChange={e => setEditForm(p => ({...p, pay: e.target.value}))} style={{...CC.input,fontSize:20,fontFamily:"var(--mono)",fontWeight:800,color:"var(--green)",border:"1px solid var(--green)33"}}/>
           </div>
           <div style={{display:"flex",gap:8}}>
-            <button className="btn-primary" onClick={() => saveEdit(editingId)} style={{flex:1,background:"var(--cyan)",border:"none",borderRadius:10,color:"#000",padding:"12px",fontWeight:700,cursor:"pointer",fontSize:14}}>💾 Guardar</button>
+            <button className="btn-primary" onClick={() => saveEdit(editingId)} style={{flex:1,background:"var(--cyan)",border:"none",borderRadius:10,color:"#000",padding:"12px",fontWeight:700,cursor:"pointer",fontSize:15}}>💾 Guardar</button>
             <button onClick={() => setEditingId(null)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"12px 16px",cursor:"pointer"}}>✕</button>
           </div>
         </Modal>
@@ -1216,23 +1277,23 @@ export default function App() {
             <div style={{...CC.cardGlow("var(--cyan)"),padding:24,marginBottom:12}} className="card">
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
                 <div>
-                  <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>INGRESOS HOY</div>
+                  <div style={{fontSize:12,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>INGRESOS HOY</div>
                   <div style={{fontSize:48,fontWeight:800,fontFamily:"var(--mono)",color:"var(--green)",lineHeight:1,marginTop:4}}>${todayMoney.toFixed(2)}</div>
                   <div style={{marginTop:10}}>
                     {minsGoalReached
                       ? <div style={{fontSize:16,fontWeight:900,fontFamily:"var(--mono)",color:"var(--green)"}}>✓ Meta de minutos alcanzada</div>
                       : <div style={{display:"flex",alignItems:"baseline",gap:6}}>
                           <div style={{fontSize:36,fontWeight:900,fontFamily:"var(--mono)",color:"var(--cyan)",lineHeight:1}}>{minsLeft}</div>
-                          <div style={{fontSize:13,fontWeight:700,color:"var(--cyan)"}}>min restantes</div>
+                          <div style={{fontSize:15,fontWeight:700,color:"var(--cyan)"}}>min restantes</div>
                         </div>
                     }
-                    <div style={{fontSize:11,color:"var(--text3)",marginTop:4,fontFamily:"var(--mono)"}}>{todayCalls.length} llamadas · {todayMins}/{minsNeeded} min hechos</div>
+                    <div style={{fontSize:13,color:"var(--text3)",marginTop:4,fontFamily:"var(--mono)"}}>{todayCalls.length} llamadas · {todayMins}/{minsNeeded} min hechos</div>
                   </div>
                 </div>
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:10,color:"var(--text3)",marginBottom:4}}>META</div>
+                  <div style={{fontSize:12,color:"var(--text3)",marginBottom:4}}>META</div>
                   <div style={{fontSize:22,fontWeight:800,fontFamily:"var(--mono)",color:moneyPct>=100?"var(--green)":"var(--amber)"}}>{moneyPct}%</div>
-                  <div style={{fontSize:11,color:"var(--text3)"}}>de ${config.dailyMoneyGoal}</div>
+                  <div style={{fontSize:13,color:"var(--text3)"}}>de ${config.dailyMoneyGoal}</div>
                 </div>
               </div>
               <div style={{background:"var(--bg)",borderRadius:99,height:6,overflow:"hidden"}}>
@@ -1240,7 +1301,7 @@ export default function App() {
               </div>
               {/* Idle cost */}
               <div style={{marginTop:14,paddingTop:14,borderTop:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>SIN LLAMADAS</div>
+                <div style={{fontSize:12,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>SIN LLAMADAS</div>
                 <div style={{fontFamily:"var(--mono)",fontWeight:900,fontSize:20,color:"var(--red)"}}>-${(idleSecs / 60 * 0.12).toFixed(2)}</div>
               </div>
             </div>
@@ -1252,9 +1313,9 @@ export default function App() {
                 { label: "✏️ Manual",                             active: false,       color:"var(--cyan)",   action: () => setShowManual(true) },
                 { label: "📋 Pegar",                              active: false,       color:"var(--purple)", action: () => setShowPaste(true) },
               ].map(btn => (
-                <button key={btn.label} className="action-btn" onClick={btn.action} style={{padding:"16px 8px",borderRadius:14,border:`1px solid ${btn.active?btn.color:"var(--border)"}`,cursor:"pointer",background:btn.active?`${btn.color}11`:"var(--bg2)",color:btn.active?btn.color:"var(--text)",fontWeight:700,fontSize:12,display:"flex",flexDirection:"column",alignItems:"center",gap:6,boxShadow:btn.active?`0 0 14px ${btn.color}22`:"none",transition:"all .15s"}}>
+                <button key={btn.label} className="action-btn" onClick={btn.action} style={{padding:"16px 8px",borderRadius:14,border:`1px solid ${btn.active?btn.color:"var(--border)"}`,cursor:"pointer",background:btn.active?`${btn.color}11`:"var(--bg2)",color:btn.active?btn.color:"var(--text)",fontWeight:700,fontSize:14,display:"flex",flexDirection:"column",alignItems:"center",gap:6,boxShadow:btn.active?`0 0 14px ${btn.color}22`:"none",transition:"all .15s"}}>
                   <span style={{fontSize:20}}>{btn.label.split(" ")[0]}</span>
-                  <span style={{fontSize:10}}>{btn.label.split(" ").slice(1).join(" ")}</span>
+                  <span style={{fontSize:12}}>{btn.label.split(" ").slice(1).join(" ")}</span>
                 </button>
               ))}
             </div>
@@ -1262,30 +1323,30 @@ export default function App() {
             {/* Today's calls */}
             <div style={{...CC.card,padding:20}} className="card">
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-                <div style={{fontWeight:700,color:"var(--text)",fontSize:14}}>Llamadas de hoy</div>
-                <div style={{fontSize:12,fontFamily:"var(--mono)",color:"var(--text2)"}}>{todayCalls.length}</div>
+                <div style={{fontWeight:700,color:"var(--text)",fontSize:15}}>Llamadas de hoy</div>
+                <div style={{fontSize:14,fontFamily:"var(--mono)",color:"var(--text2)"}}>{todayCalls.length}</div>
               </div>
               {todayCalls.length === 0 && (
                 <div style={{textAlign:"center",padding:"24px 0",color:"var(--text3)"}}>
                   <div style={{fontSize:32,marginBottom:8}}>📞</div>
-                  <div style={{fontSize:13}}>Sin llamadas hoy</div>
-                  <div style={{fontSize:11,marginTop:4}}>Usa los botones de arriba para registrar</div>
+                  <div style={{fontSize:15}}>Sin llamadas hoy</div>
+                  <div style={{fontSize:13,marginTop:4}}>Usa los botones de arriba para registrar</div>
                 </div>
               )}
               {todayCalls.map((c, i) => (
                 <div key={c.id} className="call-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"11px 8px",borderRadius:10,marginBottom:2,background:"transparent",borderTop:i>0?"1px solid var(--border)":"none"}}>
                   <div style={{display:"flex",alignItems:"center",gap:10}}>
-                    <div style={{width:30,height:30,borderRadius:7,background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontFamily:"var(--mono)",color:"var(--text3)",fontWeight:700,border:"1px solid var(--border)",flexShrink:0}}>{i+1}</div>
+                    <div style={{width:30,height:30,borderRadius:7,background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontFamily:"var(--mono)",color:"var(--text3)",fontWeight:700,border:"1px solid var(--border)",flexShrink:0}}>{i+1}</div>
                     <div>
-                      <div style={{fontWeight:600,fontSize:13}}>#{c.customerId}</div>
-                      <div style={{fontSize:11,color:"var(--text2)",fontFamily:"var(--mono)"}}>{c.callStart} · {c.duration}m</div>
+                      <div style={{fontWeight:600,fontSize:15}}>#{c.customerId}</div>
+                      <div style={{fontSize:13,color:"var(--text2)",fontFamily:"var(--mono)"}}>{c.callStart} · {c.duration}m</div>
                     </div>
-                    {c.surge && <span style={{fontSize:9,background:"#fef3c7",color:"var(--amber)",padding:"2px 7px",borderRadius:6,border:"1px solid var(--amber)44",fontWeight:700}}>SURGE</span>}
+                    {c.surge && <span style={{fontSize:10,background:"#fef3c7",color:"var(--amber)",padding:"2px 7px",borderRadius:6,border:"1px solid var(--amber)44",fontWeight:700}}>SURGE</span>}
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                    <div style={{fontWeight:800,fontSize:14,fontFamily:"var(--mono)",color:"var(--green)"}}>${c.pay.toFixed(2)}</div>
-                    <button onClick={() => startEdit(c)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:13,padding:3}}>✏️</button>
-                    <button onClick={() => handleDelete(c.id)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:13,padding:3}}>🗑</button>
+                    <div style={{fontWeight:800,fontSize:15,fontFamily:"var(--mono)",color:"var(--green)"}}>${c.pay.toFixed(2)}</div>
+                    <button onClick={() => startEdit(c)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:15,padding:3}}>✏️</button>
+                    <button onClick={() => handleDelete(c.id)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:15,padding:3}}>🗑</button>
                   </div>
                 </div>
               ))}
@@ -1298,17 +1359,17 @@ export default function App() {
           <div>
             {/* Score */}
             <div style={{...CC.cardGlow(scoreColor),padding:24,marginBottom:12,textAlign:"center"}} className="card">
-              <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1.5,marginBottom:8}}>SCORE DEL DÍA</div>
+              <div style={{fontSize:12,color:"var(--text3)",fontWeight:700,letterSpacing:1.5,marginBottom:8}}>SCORE DEL DÍA</div>
               <div style={{fontSize:72,fontWeight:900,fontFamily:"var(--mono)",color:scoreColor,lineHeight:1}}>{score}</div>
-              <div style={{fontSize:13,color:scoreColor,fontWeight:600,marginTop:6,letterSpacing:.5}}>{scoreLabel}</div>
+              <div style={{fontSize:15,color:scoreColor,fontWeight:600,marginTop:6,letterSpacing:.5}}>{scoreLabel}</div>
               <div style={{marginTop:14,background:"var(--bg)",borderRadius:99,height:6,overflow:"hidden"}}>
                 <div style={{width:`${score}%`,height:"100%",background:scoreColor,borderRadius:99,transition:"width .6s",boxShadow:`0 0 8px ${scoreColor}66`}}/>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginTop:14}}>
                 {[["Meta",Math.round(scoreGoal),40,"var(--green)"],["Ritmo",Math.round(scoreRhythm),30,"var(--cyan)"],["Racha",Math.round(scoreStreak),20,"var(--amber)"],["Activo",Math.round(scoreHours),10,"var(--purple)"]].map(([l,v,max,c]) => (
                   <div key={l} style={{background:"var(--bg)",borderRadius:8,padding:"8px 4px"}}>
-                    <div style={{fontSize:14,fontWeight:800,fontFamily:"var(--mono)",color:c}}>{v}<span style={{fontSize:9,color:"var(--text3)"}}>/{max}</span></div>
-                    <div style={{fontSize:10,color:"var(--text3)",marginTop:2}}>{l}</div>
+                    <div style={{fontSize:15,fontWeight:800,fontFamily:"var(--mono)",color:c}}>{v}<span style={{fontSize:10,color:"var(--text3)"}}>/{max}</span></div>
+                    <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{l}</div>
                   </div>
                 ))}
               </div>
@@ -1320,10 +1381,10 @@ export default function App() {
                 const diffM = curM - prevM, diffMin = curMin - prevMin, up = diffM >= 0;
                 return (
                   <div key={label} style={{...CC.card,padding:14}} className="card">
-                    <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:.8,marginBottom:8}}>{label.toUpperCase()}</div>
-                    <div style={{fontSize:20,fontWeight:800,fontFamily:"var(--mono)",color:up?"var(--green)":"var(--red)"}}>{up?"+":""}{diffM.toFixed(2)}<span style={{fontSize:11}}>$</span></div>
-                    <div style={{fontSize:11,fontFamily:"var(--mono)",color:diffMin>=0?"var(--cyan)":"var(--red)",marginTop:2}}>{diffMin>=0?"+":""}{diffMin}m</div>
-                    <div style={{fontSize:10,color:"var(--text3)",marginTop:6}}>antes: ${prevM.toFixed(2)}</div>
+                    <div style={{fontSize:12,color:"var(--text3)",fontWeight:700,letterSpacing:.8,marginBottom:8}}>{label.toUpperCase()}</div>
+                    <div style={{fontSize:20,fontWeight:800,fontFamily:"var(--mono)",color:up?"var(--green)":"var(--red)"}}>{up?"+":""}{diffM.toFixed(2)}<span style={{fontSize:13}}>$</span></div>
+                    <div style={{fontSize:13,fontFamily:"var(--mono)",color:diffMin>=0?"var(--cyan)":"var(--red)",marginTop:2}}>{diffMin>=0?"+":""}{diffMin}m</div>
+                    <div style={{fontSize:12,color:"var(--text3)",marginTop:6}}>antes: ${prevM.toFixed(2)}</div>
                   </div>
                 );
               })}
@@ -1332,9 +1393,9 @@ export default function App() {
             {/* Cycle projection */}
             {currentCycle && (
               <div style={{...CC.cardGlow("var(--amber)"),padding:20,marginBottom:12}} className="card">
-                <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>PROYECCIÓN DEL CICLO</div>
+                <div style={{fontSize:12,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>PROYECCIÓN DEL CICLO</div>
                 <div style={{fontSize:36,fontWeight:900,fontFamily:"var(--mono)",color:"var(--amber)"}}>${projection !== null ? projection.toFixed(2) : "--"}</div>
-                <div style={{fontSize:11,color:"var(--text2)",marginTop:2}}>A este ritmo al final del ciclo</div>
+                <div style={{fontSize:13,color:"var(--text2)",marginTop:2}}>A este ritmo al final del ciclo</div>
               </div>
             )}
 
@@ -1348,86 +1409,173 @@ export default function App() {
               const pctGreen = total ? Math.round((onTarget.length / total) * 100) : 0;
               const pctAmber = total ? Math.round((mid.length      / total) * 100) : 0;
               const pctRed   = total ? 100 - pctGreen - pctAmber               : 0;
-              // Top 3 longest gaps with their time window
               const gapsWithCtx = allGaps.map((gap, i) => ({
                 gap,
                 from: sortedToday[i]?.callStart   || "",
                 to:   sortedToday[i+1]?.callStart || "",
               }));
               const top3 = [...gapsWithCtx].sort((a, b) => b.gap - a.gap).slice(0, 3).filter(g => g.gap > 5);
+
+              // Cycle history data
+              const cycleRhythmDays = (() => {
+                if (!currentCycle) return [];
+                const s = toDate(currentCycle.start), e = toDate(currentCycle.end);
+                const days = [];
+                for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+                  const mm = String(d.getMonth()+1).padStart(2,"0");
+                  const dd = String(d.getDate()).padStart(2,"0");
+                  const ds = `${mm}/${dd}/${d.getFullYear()}`;
+                  const dayCalls = (byDate[ds] || []);
+                  if (dayCalls.length < 2) continue;
+                  const sorted = [...dayCalls].sort((a, b) => (timeToMins(a.callStart)||0) - (timeToMins(b.callStart)||0));
+                  const gaps = [];
+                  for (let i = 1; i < sorted.length; i++) {
+                    const mA = timeToMins(sorted[i-1].callStart), mB = timeToMins(sorted[i].callStart);
+                    if (mA !== null && mB !== null && mB > mA) {
+                      const g = (mB - mA) - sorted[i-1].duration;
+                      if (g >= 0) gaps.push(g);
+                    }
+                  }
+                  if (!gaps.length) continue;
+                  const avg = Math.round(gaps.reduce((s, g) => s + g, 0) / gaps.length);
+                  const pct = Math.round((gaps.filter(g => g <= 5).length / gaps.length) * 100);
+                  days.push({ ds, label: `${mm}/${dd}`, avg, pct, gaps: gaps.length, isToday: ds === todayStr });
+                }
+                return days;
+              })();
+
               return (
                 <div style={{...CC.card,padding:20,marginBottom:12}} className="card">
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:14}}>
-                    <div style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>Ritmo entre llamadas</div>
-                    <div style={{fontSize:10,color:"var(--text3)"}}>objetivo: <span style={{color:"var(--green)",fontWeight:700}}>≤5 min</span></div>
+                  {/* Header with toggle */}
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                    <div style={{fontSize:15,fontWeight:700,color:"var(--text)"}}>Ritmo entre llamadas</div>
+                    <div style={{display:"flex",gap:4,background:"var(--bg)",borderRadius:8,padding:3}}>
+                      {[["today","Hoy"],["cycle","Ciclo"]].map(([v,l]) => (
+                        <button key={v} onClick={() => setRhythmView(v)}
+                          style={{fontSize:12,fontWeight:700,padding:"4px 10px",borderRadius:6,border:"none",cursor:"pointer",
+                            background: rhythmView===v ? "var(--cyan)" : "transparent",
+                            color: rhythmView===v ? "#000" : "var(--text3)",
+                            transition:"all .15s"}}>
+                          {l}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
-                  {total === 0 ? (
-                    <div style={{textAlign:"center",padding:"20px 0",color:"var(--text3)",fontSize:13}}>
-                      <div style={{fontSize:28,marginBottom:6}}>📞</div>
-                      Necesitas al menos 2 llamadas
-                    </div>
-                  ) : (
+                  {/* HOY */}
+                  {rhythmView === "today" && (
                     <>
-                      {/* 3 stats */}
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
-                        {/* Promedio */}
-                        <div style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
-                          <div style={{fontSize:20,fontWeight:900,fontFamily:"var(--mono)",color:avgGap<=5?"var(--green)":avgGap<=15?"var(--amber)":"var(--red)",lineHeight:1}}>{avgGap}m</div>
-                          <div style={{fontSize:9,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>PROMEDIO</div>
+                      <div style={{fontSize:12,color:"var(--text3)",marginBottom:10}}>objetivo: <span style={{color:"var(--green)",fontWeight:700}}>≤5 min</span></div>
+                      {total === 0 ? (
+                        <div style={{textAlign:"center",padding:"20px 0",color:"var(--text3)",fontSize:15}}>
+                          <div style={{fontSize:28,marginBottom:6}}>📞</div>
+                          Necesitas al menos 2 llamadas
                         </div>
-                        {/* B2B */}
-                        <div style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
-                          <div style={{display:"flex",alignItems:"baseline",justifyContent:"center",gap:4}}>
-                            <div style={{fontSize:20,fontWeight:900,fontFamily:"var(--mono)",color:"var(--green)",lineHeight:1}}>B2B</div>
-                            {b2b.length > 0 && <div style={{fontSize:12,fontWeight:700,fontFamily:"var(--mono)",color:"var(--green)"}}>×{b2b.length}</div>}
-                          </div>
-                          <div style={{fontSize:9,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>{b2b.length === 0 ? "NINGUNO" : "BACK TO BACK"}</div>
-                        </div>
-                        {/* Total gaps */}
-                        <div style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
-                          <div style={{fontSize:20,fontWeight:900,fontFamily:"var(--mono)",color:"var(--text2)",lineHeight:1}}>{total}</div>
-                          <div style={{fontSize:9,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>PAUSAS</div>
-                        </div>
-                      </div>
-
-                      {/* Segmented distribution bar */}
-                      <div style={{marginBottom:10}}>
-                        <div style={{display:"flex",borderRadius:99,overflow:"hidden",height:10,gap:1}}>
-                          {pctGreen > 0 && <div style={{flex:pctGreen,background:"var(--green)",opacity:.8}}/>}
-                          {pctAmber > 0 && <div style={{flex:pctAmber,background:"var(--amber)",opacity:.8}}/>}
-                          {pctRed   > 0 && <div style={{flex:pctRed,  background:"var(--red)",  opacity:.8}}/>}
-                        </div>
-                        <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}>
-                          {[
-                            [onTarget.length, "≤5m", "var(--green)"],
-                            [mid.length,      "6–15m","var(--amber)"],
-                            [slow.length,     ">15m", "var(--red)"],
-                          ].map(([count, label, color]) => (
-                            <div key={label} style={{display:"flex",alignItems:"center",gap:4}}>
-                              <div style={{width:7,height:7,borderRadius:2,background:color,opacity:.8}}/>
-                              <span style={{fontSize:10,color:"var(--text2)",fontFamily:"var(--mono)"}}>{count} <span style={{color:"var(--text3)"}}>{label}</span></span>
+                      ) : (
+                        <>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
+                            <div style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
+                              <div style={{fontSize:20,fontWeight:900,fontFamily:"var(--mono)",color:avgGap<=5?"var(--green)":avgGap<=15?"var(--amber)":"var(--red)",lineHeight:1}}>{avgGap}m</div>
+                              <div style={{fontSize:10,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>PROMEDIO</div>
                             </div>
-                          ))}
-                          <div style={{fontSize:10,color:pctGreen>=70?"var(--green)":pctGreen>=40?"var(--amber)":"var(--red)",fontWeight:700}}>
-                            {pctGreen}% en objetivo
+                            <div style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
+                              <div style={{display:"flex",alignItems:"baseline",justifyContent:"center",gap:4}}>
+                                <div style={{fontSize:20,fontWeight:900,fontFamily:"var(--mono)",color:"var(--green)",lineHeight:1}}>B2B</div>
+                                {b2b.length > 0 && <div style={{fontSize:14,fontWeight:700,fontFamily:"var(--mono)",color:"var(--green)"}}>×{b2b.length}</div>}
+                              </div>
+                              <div style={{fontSize:10,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>{b2b.length === 0 ? "NINGUNO" : "BACK TO BACK"}</div>
+                            </div>
+                            <div style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
+                              <div style={{fontSize:20,fontWeight:900,fontFamily:"var(--mono)",color:"var(--text2)",lineHeight:1}}>{total}</div>
+                              <div style={{fontSize:10,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>PAUSAS</div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
+                          <div style={{marginBottom:10}}>
+                            <div style={{display:"flex",borderRadius:99,overflow:"hidden",height:10,gap:1}}>
+                              {pctGreen > 0 && <div style={{flex:pctGreen,background:"var(--green)",opacity:.8}}/>}
+                              {pctAmber > 0 && <div style={{flex:pctAmber,background:"var(--amber)",opacity:.8}}/>}
+                              {pctRed   > 0 && <div style={{flex:pctRed,  background:"var(--red)",  opacity:.8}}/>}
+                            </div>
+                            <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}>
+                              {[[onTarget.length,"≤5m","var(--green)"],[mid.length,"6–15m","var(--amber)"],[slow.length,">15m","var(--red)"]].map(([count,label,color]) => (
+                                <div key={label} style={{display:"flex",alignItems:"center",gap:4}}>
+                                  <div style={{width:7,height:7,borderRadius:2,background:color,opacity:.8}}/>
+                                  <span style={{fontSize:12,color:"var(--text2)",fontFamily:"var(--mono)"}}>{count} <span style={{color:"var(--text3)"}}>{label}</span></span>
+                                </div>
+                              ))}
+                              <div style={{fontSize:12,color:pctGreen>=70?"var(--green)":pctGreen>=40?"var(--amber)":"var(--red)",fontWeight:700}}>{pctGreen}% en objetivo</div>
+                            </div>
+                          </div>
+                          {top3.length > 0 && (
+                            <div style={{borderTop:"1px solid var(--border)",paddingTop:12,marginTop:4}}>
+                              <div style={{fontSize:12,color:"var(--text3)",fontWeight:700,letterSpacing:.8,marginBottom:8}}>PAUSAS MÁS LARGAS</div>
+                              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                                {top3.map((g, i) => (
+                                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                                    <div style={{fontSize:13,color:"var(--text2)",fontFamily:"var(--mono)"}}>{g.from} → {g.to}</div>
+                                    <div style={{fontSize:14,fontWeight:800,fontFamily:"var(--mono)",color:g.gap<=15?"var(--amber)":"var(--red)"}}>{g.gap}m</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </>
+                  )}
 
-                      {/* Top outliers */}
-                      {top3.length > 0 && (
-                        <div style={{borderTop:"1px solid var(--border)",paddingTop:12,marginTop:4}}>
-                          <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:.8,marginBottom:8}}>PAUSAS MÁS LARGAS</div>
-                          <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                            {top3.map((g, i) => (
-                              <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                                <div style={{fontSize:11,color:"var(--text2)",fontFamily:"var(--mono)"}}>{g.from} → {g.to}</div>
-                                <div style={{fontSize:12,fontWeight:800,fontFamily:"var(--mono)",color:g.gap<=15?"var(--amber)":"var(--red)"}}>{g.gap}m</div>
+                  {/* CICLO */}
+                  {rhythmView === "cycle" && (
+                    <>
+                      {cycleRhythmDays.length === 0 ? (
+                        <div style={{textAlign:"center",padding:"20px 0",color:"var(--text3)",fontSize:15}}>
+                          <div style={{fontSize:28,marginBottom:6}}>📅</div>
+                          Sin datos de ritmo en este ciclo
+                        </div>
+                      ) : (
+                        <>
+                          {/* Summary row for the cycle */}
+                          {(() => {
+                            const allCycleGaps = cycleRhythmDays.flatMap(d => Array(d.gaps).fill(d.avg)); // approximation
+                            const cycleAvg = Math.round(cycleRhythmDays.reduce((s, d) => s + d.avg, 0) / cycleRhythmDays.length);
+                            const cyclePct = Math.round(cycleRhythmDays.reduce((s, d) => s + d.pct, 0) / cycleRhythmDays.length);
+                            return (
+                              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
+                                <div style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
+                                  <div style={{fontSize:20,fontWeight:900,fontFamily:"var(--mono)",color:cycleAvg<=5?"var(--green)":cycleAvg<=15?"var(--amber)":"var(--red)",lineHeight:1}}>{cycleAvg}m</div>
+                                  <div style={{fontSize:10,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>PROM. CICLO</div>
+                                </div>
+                                <div style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
+                                  <div style={{fontSize:20,fontWeight:900,fontFamily:"var(--mono)",color:cyclePct>=70?"var(--green)":cyclePct>=40?"var(--amber)":"var(--red)",lineHeight:1}}>{cyclePct}%</div>
+                                  <div style={{fontSize:10,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>EN OBJETIVO</div>
+                                </div>
+                                <div style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
+                                  <div style={{fontSize:20,fontWeight:900,fontFamily:"var(--mono)",color:"var(--text2)",lineHeight:1}}>{cycleRhythmDays.length}</div>
+                                  <div style={{fontSize:10,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>DÍAS CON DATA</div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          {/* Per-day rows */}
+                          <div style={{borderTop:"1px solid var(--border)",paddingTop:10}}>
+                            {[...cycleRhythmDays].reverse().map((d, i) => (
+                              <div key={d.ds} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderTop:i>0?"1px solid var(--border)":"none"}}>
+                                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                  <span style={{fontSize:13,fontFamily:"var(--mono)",color:d.isToday?"var(--cyan)":"var(--text2)",fontWeight:d.isToday?700:400}}>{d.label}</span>
+                                  {d.isToday && <span style={{fontSize:10,background:"var(--cyan)22",color:"var(--cyan)",padding:"1px 6px",borderRadius:4,fontWeight:700}}>HOY</span>}
+                                </div>
+                                <div style={{display:"flex",alignItems:"center",gap:12}}>
+                                  {/* Mini bar */}
+                                  <div style={{width:60,height:5,borderRadius:99,background:"var(--bg3)",overflow:"hidden"}}>
+                                    <div style={{width:`${d.pct}%`,height:"100%",background:d.pct>=70?"var(--green)":d.pct>=40?"var(--amber)":"var(--red)",borderRadius:99}}/>
+                                  </div>
+                                  <span style={{fontSize:13,fontFamily:"var(--mono)",color:"var(--text3)",minWidth:28,textAlign:"right"}}>{d.pct}%</span>
+                                  <span style={{fontSize:14,fontFamily:"var(--mono)",fontWeight:700,color:d.avg<=5?"var(--green)":d.avg<=15?"var(--amber)":"var(--red)",minWidth:28,textAlign:"right"}}>{d.avg}m</span>
+                                </div>
                               </div>
                             ))}
                           </div>
-                        </div>
+                        </>
                       )}
                     </>
                   )}
@@ -1476,7 +1624,7 @@ export default function App() {
 
               return (
                 <div style={{...CC.card,padding:20,marginBottom:12}} className="card">
-                  <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:14}}>Racha del ciclo</div>
+                  <div style={{fontSize:15,fontWeight:700,color:"var(--text)",marginBottom:14}}>Racha del ciclo</div>
 
                   {/* 3 stats */}
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
@@ -1487,7 +1635,7 @@ export default function App() {
                     ].map(([label, val, color]) => (
                       <div key={label} style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
                         <div style={{fontSize:17,fontWeight:900,fontFamily:"var(--mono)",color,lineHeight:1}}>{val}</div>
-                        <div style={{fontSize:9,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.3,textTransform:"uppercase"}}>{label}</div>
+                        <div style={{fontSize:10,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.3,textTransform:"uppercase"}}>{label}</div>
                       </div>
                     ))}
                   </div>
@@ -1495,19 +1643,19 @@ export default function App() {
                   {/* Goal compliance bar */}
                   <div style={{marginBottom:16}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
-                      <span style={{fontSize:11,color:"var(--text2)",fontWeight:500}}>Cumplimiento de meta diaria</span>
-                      <span style={{fontSize:12,fontWeight:700,fontFamily:"var(--mono)",color:goalColor}}>{goalDays}/{activeCount} días</span>
+                      <span style={{fontSize:13,color:"var(--text2)",fontWeight:500}}>Cumplimiento de meta diaria</span>
+                      <span style={{fontSize:14,fontWeight:700,fontFamily:"var(--mono)",color:goalColor}}>{goalDays}/{activeCount} días</span>
                     </div>
                     <div style={{background:"var(--bg)",borderRadius:99,height:8,overflow:"hidden"}}>
                       <div style={{width:`${goalPct}%`,height:"100%",borderRadius:99,background:goalColor,transition:"width .4s"}}/>
                     </div>
-                    <div style={{fontSize:10,color:"var(--text3)",marginTop:4}}>
+                    <div style={{fontSize:12,color:"var(--text3)",marginTop:4}}>
                       {activeCount === 0 ? "Sin días activos aún" : `${goalPct}% de los días activos llegaste a $${dailyGoal}`}
                     </div>
                   </div>
 
                   {/* Day chips */}
-                  <div style={{fontSize:10,fontWeight:700,color:"var(--text3)",letterSpacing:.8,textTransform:"uppercase",marginBottom:8}}>Días del ciclo</div>
+                  <div style={{fontSize:12,fontWeight:700,color:"var(--text3)",letterSpacing:.8,textTransform:"uppercase",marginBottom:8}}>Días del ciclo</div>
                   <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
                     {cycleDays.map((d, i) => {
                       const isToday  = d === todayStr;
@@ -1517,8 +1665,8 @@ export default function App() {
                       const isGoal   = isActive && dayPay >= dailyGoal;
                       const dayNum   = parseInt(d.slice(3,5));
 
-                      const bg = isGoal   ? "rgba(22,163,74,.15)"  :
-                                 isActive ? "rgba(0,153,170,.12)"  : "var(--bg)";
+                      const bg = isGoal   ? "color-mix(in srgb, var(--green) 15%, transparent)"  :
+                                 isActive ? "color-mix(in srgb, var(--cyan) 12%, transparent)"  : "var(--bg)";
                       const borderStyle = isToday
                         ? `2px solid var(--amber)`
                         : isGoal   ? "1px solid var(--green)"
@@ -1533,7 +1681,7 @@ export default function App() {
                             width:28, height:28, borderRadius:6,
                             background:bg, border:borderStyle,
                             display:"flex", alignItems:"center", justifyContent:"center",
-                            fontFamily:"var(--mono)", fontSize:9, fontWeight:700,
+                            fontFamily:"var(--mono)", fontSize:10, fontWeight:700,
                             color:textColor, opacity: isFuture ? 0.35 : 1,
                             cursor:"default",
                           }}>
@@ -1546,14 +1694,14 @@ export default function App() {
                   {/* Legend */}
                   <div style={{display:"flex",gap:12,marginTop:12,flexWrap:"wrap"}}>
                     {[
-                      ["Meta cumplida", "rgba(22,163,74,.25)", "1px solid var(--green)"],
-                      ["Activo",        "rgba(0,153,170,.12)", "1px solid var(--cyan2)"],
+                      ["Meta cumplida", "color-mix(in srgb, var(--green) 25%, transparent)", "1px solid var(--green)"],
+                      ["Activo",        "color-mix(in srgb, var(--cyan) 12%, transparent)",  "1px solid var(--cyan2)"],
                       ["Sin actividad", "var(--bg)",           "1px solid var(--border)"],
                       ["Hoy",           "transparent",         "2px solid var(--amber)"],
                     ].map(([label, bg, border]) => (
                       <div key={label} style={{display:"flex",alignItems:"center",gap:5}}>
                         <div style={{width:10,height:10,borderRadius:3,background:bg,border}}/>
-                        <span style={{fontSize:10,color:"var(--text3)"}}>{label}</span>
+                        <span style={{fontSize:12,color:"var(--text3)"}}>{label}</span>
                       </div>
                     ))}
                   </div>
@@ -1571,10 +1719,10 @@ export default function App() {
               <StatBox label="Ingresos semana" value={`$${weekMoney.toFixed(2)}`} color="var(--green)"/>
             </div>
             <div style={{...CC.card,padding:20}} className="card">
-              <div style={{fontWeight:700,marginBottom:16,fontSize:14}}>Minutos por día</div>
+              <div style={{fontWeight:700,marginBottom:16,fontSize:15}}>Minutos por día</div>
               {weekData.map(d => (
                 <div key={d.date} style={{marginBottom:14}}>
-                  <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6}}>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:14,marginBottom:6}}>
                     <span style={{color:d.date===todayStr?"var(--cyan)":"var(--text2)",fontWeight:d.date===todayStr?700:400,fontFamily:"var(--mono)"}}>{d.label}{d.date===todayStr?" ←":""}</span>
                     <span style={{fontFamily:"var(--mono)"}}><span style={{color:"var(--cyan)"}}>{d.mins}m</span> · <span style={{color:"var(--green)"}}>${d.money.toFixed(2)}</span></span>
                   </div>
@@ -1595,7 +1743,7 @@ export default function App() {
               <Pill active={cycleView==="all"}     onClick={() => setCycleView("all")}>Todos</Pill>
             </div>
             {cycleView === "current" && (!currentCycle
-              ? <div style={{color:"var(--text3)",fontSize:13,textAlign:"center",padding:"32px 0"}}>No hay ciclo activo.</div>
+              ? <div style={{color:"var(--text3)",fontSize:15,textAlign:"center",padding:"32px 0"}}>No hay ciclo activo.</div>
               : (() => {
                   const stats    = getCycleStats(currentCycle);
                   const daysLeft = daysUntil(currentCycle.end), dtp = daysUntil(currentCycle.payDate);
@@ -1608,18 +1756,18 @@ export default function App() {
                       <div style={{...CC.cardGlow("var(--cyan)"),padding:20,marginBottom:12}} className="card">
                         <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}>
                           <div>
-                            <div style={{fontSize:10,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>PERÍODO</div>
-                            <div style={{fontWeight:700,fontSize:13,color:"var(--cyan)",fontFamily:"var(--mono)"}}>{currentCycle.start} → {currentCycle.end}</div>
+                            <div style={{fontSize:12,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>PERÍODO</div>
+                            <div style={{fontWeight:700,fontSize:15,color:"var(--cyan)",fontFamily:"var(--mono)"}}>{currentCycle.start} → {currentCycle.end}</div>
                           </div>
                           <div style={{textAlign:"right"}}>
-                            <div style={{fontSize:10,color:"var(--text3)"}}>COBRO</div>
-                            <div style={{fontWeight:700,color:"var(--amber)",fontFamily:"var(--mono)",fontSize:13}}>{currentCycle.payDate}</div>
+                            <div style={{fontSize:12,color:"var(--text3)"}}>COBRO</div>
+                            <div style={{fontWeight:700,color:"var(--amber)",fontFamily:"var(--mono)",fontSize:15}}>{currentCycle.payDate}</div>
                           </div>
                         </div>
                         <div style={{background:"var(--bg)",borderRadius:99,height:6,overflow:"hidden",marginBottom:6}}>
                           <div style={{width:`${pct}%`,height:"100%",background:"linear-gradient(90deg,var(--cyan),var(--green))",borderRadius:99}}/>
                         </div>
-                        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"var(--text3)",fontFamily:"var(--mono)"}}>
                           <span>Día {passed}/{total}</span>
                           <span>{daysLeft > 0 ? `${daysLeft}d restantes` : "Cerrado"}</span>
                         </div>
@@ -1643,13 +1791,13 @@ export default function App() {
                 <div key={i} style={{...CC.card,padding:16,marginBottom:8,border:`1px solid ${isCurrent?"var(--cyan)44":"var(--border)"}`,opacity:isPast&&!isCurrent?0.5:1}} className="card">
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div>
-                      {isCurrent && <span style={{fontSize:9,background:"var(--cyan)22",color:"var(--cyan)",padding:"2px 8px",borderRadius:6,marginBottom:6,display:"inline-block",fontWeight:700}}>ACTUAL</span>}
-                      <div style={{fontSize:12,fontWeight:700,fontFamily:"var(--mono)",color:isCurrent?"var(--cyan)":"var(--text)"}}>{cycle.start} → {cycle.end}</div>
-                      <div style={{fontSize:11,color:"var(--amber)",marginTop:2,fontFamily:"var(--mono)"}}>{cycle.payDate}{!isPast&&dtp>0&&<span style={{color:"var(--text3)",marginLeft:6}}>({dtp}d)</span>}</div>
+                      {isCurrent && <span style={{fontSize:10,background:"var(--cyan)22",color:"var(--cyan)",padding:"2px 8px",borderRadius:6,marginBottom:6,display:"inline-block",fontWeight:700}}>ACTUAL</span>}
+                      <div style={{fontSize:14,fontWeight:700,fontFamily:"var(--mono)",color:isCurrent?"var(--cyan)":"var(--text)"}}>{cycle.start} → {cycle.end}</div>
+                      <div style={{fontSize:13,color:"var(--amber)",marginTop:2,fontFamily:"var(--mono)"}}>{cycle.payDate}{!isPast&&dtp>0&&<span style={{color:"var(--text3)",marginLeft:6}}>({dtp}d)</span>}</div>
                     </div>
                     <div style={{textAlign:"right"}}>
-                      <div style={{fontWeight:800,fontFamily:"var(--mono)",color:"var(--green)",fontSize:14}}>${stats.money.toFixed(2)}</div>
-                      <div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)"}}>{stats.mins}m · {stats.count}</div>
+                      <div style={{fontWeight:800,fontFamily:"var(--mono)",color:"var(--green)",fontSize:15}}>${stats.money.toFixed(2)}</div>
+                      <div style={{fontSize:13,color:"var(--text3)",fontFamily:"var(--mono)"}}>{stats.mins}m · {stats.count}</div>
                     </div>
                   </div>
                 </div>
@@ -1679,31 +1827,31 @@ export default function App() {
                 <div key={date} style={{...CC.card,padding:0,marginBottom:8,overflow:"hidden"}} className="card">
                   <div onClick={toggle} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 16px",cursor:"pointer",userSelect:"none"}}>
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <span style={{fontSize:13,color:"var(--text3)",transition:"transform .2s",display:"inline-block",transform:isOpen?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                      <span style={{fontWeight:700,fontSize:13,fontFamily:"var(--mono)",color:"var(--text)"}}>{date}</span>
-                      {surgeCount > 0 && <span style={{fontSize:9,background:"#fef3c7",color:"var(--amber)",padding:"2px 7px",borderRadius:6,fontWeight:700}}>⚡{surgeCount}</span>}
+                      <span style={{fontSize:15,color:"var(--text3)",transition:"transform .2s",display:"inline-block",transform:isOpen?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                      <span style={{fontWeight:700,fontSize:15,fontFamily:"var(--mono)",color:"var(--text)"}}>{date}</span>
+                      {surgeCount > 0 && <span style={{fontSize:10,background:"#fef3c7",color:"var(--amber)",padding:"2px 7px",borderRadius:6,fontWeight:700}}>⚡{surgeCount}</span>}
                     </div>
                     <div style={{display:"flex",alignItems:"center",gap:12}}>
-                      <span style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)"}}>{dayCalls.length} llamadas</span>
-                      <span style={{fontSize:12,fontFamily:"var(--mono)",color:"var(--cyan)"}}>{mins}m</span>
-                      <span style={{fontSize:13,fontFamily:"var(--mono)",fontWeight:700,color:"var(--green)"}}>${money.toFixed(2)}</span>
+                      <span style={{fontSize:13,color:"var(--text3)",fontFamily:"var(--mono)"}}>{dayCalls.length} llamadas</span>
+                      <span style={{fontSize:14,fontFamily:"var(--mono)",color:"var(--cyan)"}}>{mins}m</span>
+                      <span style={{fontSize:15,fontFamily:"var(--mono)",fontWeight:700,color:"var(--green)"}}>${money.toFixed(2)}</span>
                     </div>
                   </div>
                   {isOpen && (
                     <div style={{borderTop:"1px solid var(--border)"}}>
                       {dayCalls.map((c, i) => (
-                        <div key={c.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",borderTop:i>0?"1px solid var(--border)":"none",fontSize:12,background:"var(--bg)"}}>
+                        <div key={c.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",borderTop:i>0?"1px solid var(--border)":"none",fontSize:14,background:"var(--bg)"}}>
                           <div style={{display:"flex",alignItems:"center",gap:8}}>
                             <span style={{fontWeight:600,fontFamily:"var(--mono)",color:"var(--text2)"}}>{c.customerId}</span>
                             <span style={{color:"var(--text3)",fontFamily:"var(--mono)"}}>{c.callStart}</span>
-                            {c.surge && <span style={{fontSize:9,background:"#fef3c7",color:"var(--amber)",padding:"1px 6px",borderRadius:4}}>SURGE</span>}
-                            {c.billable !== "Yes" && <span style={{fontSize:9,background:"var(--red)22",color:"var(--red)",padding:"1px 6px",borderRadius:4}}>NB</span>}
+                            {c.surge && <span style={{fontSize:10,background:"#fef3c7",color:"var(--amber)",padding:"1px 6px",borderRadius:4}}>SURGE</span>}
+                            {c.billable !== "Yes" && <span style={{fontSize:10,background:"var(--red)22",color:"var(--red)",padding:"1px 6px",borderRadius:4}}>NB</span>}
                           </div>
                           <div style={{display:"flex",gap:10,alignItems:"center"}}>
                             <span style={{fontFamily:"var(--mono)",color:"var(--text2)"}}>{c.duration}m</span>
                             <span style={{fontFamily:"var(--mono)",color:"var(--green)",fontWeight:700}}>${c.pay.toFixed(2)}</span>
-                            <button onClick={e => { e.stopPropagation(); startEdit(c); }} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:12,padding:2}}>✏️</button>
-                            <button onClick={e => { e.stopPropagation(); handleDelete(c.id); }} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:12,padding:2}}>🗑</button>
+                            <button onClick={e => { e.stopPropagation(); startEdit(c); }} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:14,padding:2}}>✏️</button>
+                            <button onClick={e => { e.stopPropagation(); handleDelete(c.id); }} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:14,padding:2}}>🗑</button>
                           </div>
                         </div>
                       ))}
@@ -1723,8 +1871,8 @@ export default function App() {
           const active = tab === t.id;
           return (
             <button key={t.id} className="nav-item" onClick={() => setTab(t.id)} style={{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"4px 8px",color:active?"var(--cyan)":"var(--text3)",transition:"color .15s",minWidth:40}}>
-              <div style={{fontSize:15,lineHeight:1,filter:active?"drop-shadow(0 0 4px var(--cyan))":"none"}}>{t.icon}</div>
-              <div style={{fontSize:9,fontWeight:active?700:400,letterSpacing:.3}}>{t.label}</div>
+              <div style={{fontSize:16,lineHeight:1,filter:active?"drop-shadow(0 0 4px var(--cyan))":"none"}}>{t.icon}</div>
+              <div style={{fontSize:10,fontWeight:active?700:400,letterSpacing:.3}}>{t.label}</div>
               {active && <div style={{width:14,height:2,background:"var(--cyan)",borderRadius:99,boxShadow:"0 0 6px var(--cyan)"}}/>}
             </button>
           );
