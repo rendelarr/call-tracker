@@ -8,7 +8,7 @@ const defaultConfig  = { dailyMoneyGoal: 30, theme: "light" };
 
 const THEMES = {
   light: {
-    name: "Claro", icon: "☀",
+    name: "Light", icon: "☀️",
     "--bg":"#eef0f3","--bg2":"#f8f9fb","--bg3":"#e4e7ec",
     "--border":"#d0d5de","--border2":"#b8bfcc",
     "--cyan":"#0099aa","--cyan2":"#007a8a",
@@ -27,7 +27,7 @@ const THEMES = {
     "--text":"#e8d5ff","--text2":"#c4a882","--text3":"#7a6690",
   },
   dark: {
-    name: "Oscuro", icon: "◈",
+    name: "Dark", icon: "◈",
     "--bg":"#0f1117","--bg2":"#161b27","--bg3":"#0a0d13",
     "--border":"#1c2030","--border2":"#252d40",
     "--cyan":"#22d3ee","--cyan2":"#0ea5c9",
@@ -38,10 +38,10 @@ const THEMES = {
 };
 
 const RATES = [
-  { value: 0.12, label: "Normal", color: "#7a8a9a", icon: "○" },
-  { value: 0.13, label: "Bronce", color: "#c47d3a", icon: "◐" },
-  { value: 0.14, label: "Plata",  color: "#8fa8c2", icon: "◑" },
-  { value: 0.15, label: "Gold",   color: "#ffb800", icon: "●" },
+  { value: 0.12, label: "Normal", color: "#7a8a9a", icon: "⚪" },
+  { value: 0.13, label: "Bronce", color: "#c47d3a", icon: "🥉" },
+  { value: 0.14, label: "Silver",  color: "#8fa8c2", icon: "🥈" },
+  { value: 0.15, label: "Gold",   color: "#ffb800", icon: "🥇" },
 ];
 
 const PAY_CYCLES = [
@@ -75,12 +75,45 @@ const PAY_CYCLES = [
 ];
 
 const TABS = [
-  { id:"home",    icon:"◉", label:"Hoy"      },
+  { id:"home",    icon:"☀️", label:"Today"      },
   { id:"perf",    icon:"⚡", label:"Stats"    },
-  { id:"week",    icon:"▦", label:"Semana"   },
-  { id:"cycle",   icon:"◎", label:"Ciclo"    },
-  { id:"history", icon:"≡", label:"Historial"},
+  { id:"week",    icon:"🗓️", label:"Week"   },
+  { id:"cycle",   icon:"🔄", label:"Cycle"    },
+  { id:"history", icon:"📜", label:"History"},
 ];
+
+// ─── Sound system ─────────────────────────────────────────────────────────────
+
+const sfx = (() => {
+  let ctx = null;
+  const getCtx = () => { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); return ctx; };
+
+  function play(notes, type = "sine", vol = 0.18) {
+    try {
+      const c = getCtx();
+      notes.forEach(([freq, start, dur, endFreq]) => {
+        const osc  = c.createOscillator();
+        const gain = c.createGain();
+        osc.connect(gain); gain.connect(c.destination);
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, c.currentTime + start);
+        if (endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, c.currentTime + start + dur);
+        gain.gain.setValueAtTime(vol, c.currentTime + start);
+        gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + start + dur);
+        osc.start(c.currentTime + start);
+        osc.stop(c.currentTime + start + dur + 0.01);
+      });
+    } catch {}
+  }
+
+  return {
+    // ✅ Llamada agregada — chime ascendente alegre (C5 E5 G5)
+    callAdded: () => play([[523,0,.12],[659,.1,.12],[784,.2,.2]], "sine", 0.16),
+
+    // 🗓 Navegación entre tabs — pop suave single note
+    tabSwitch: () => play([[440,0,.07,520]], "triangle", 0.10),
+  };
+})();
 
 // ─── Global styles ────────────────────────────────────────────────────────────
 
@@ -439,7 +472,7 @@ function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
       {/* Header */}
       <div style={{marginBottom:12}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{fontSize:17,fontWeight:700,color:"var(--text)"}}>Actividad por hora</div>
+          <div style={{fontSize:17,fontWeight:700,color:"var(--text)"}}>Hourly activity</div>
           <div style={{fontSize:15,color:"var(--text2)",fontFamily:"var(--mono)"}}>{totalMins > 0 ? `${totalMins}m` : ""}</div>
         </div>
 
@@ -460,7 +493,7 @@ function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
               </div>
             ))}
             {top3.length < 2 && (
-              <div style={{alignSelf:"center",fontSize:15,color:"var(--text3)"}}>Acumula más llamadas para ver el ranking completo</div>
+              <div style={{alignSelf:"center",fontSize:15,color:"var(--text3)"}}>Accumulate more calls to see the full ranking</div>
             )}
           </div>
         )}
@@ -479,9 +512,9 @@ function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
             borderRadius:8, color:"var(--text)", padding:"7px 12px",
             fontSize:16, outline:"none", cursor:"pointer", fontFamily:"var(--sans)",
           }}>
-          <option value="cycle">Ciclo actual</option>
-          <option value="all">Todos los ciclos</option>
-          <optgroup label="Ciclos anteriores">
+          <option value="cycle">Current cycle</option>
+          <option value="all">All cycles</option>
+          <optgroup label="Previous cycles">
             {cycleOptions.filter(o => toDate(PAY_CYCLES[o.value].end) < new Date()).map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
@@ -492,7 +525,7 @@ function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
       {/* Grid */}
       {totalMins === 0 ? (
         <div style={{textAlign:"center",padding:"24px 0",color:"var(--text3)",fontSize:16}}>
-          Sin datos para el período seleccionado
+          No data for selected period
         </div>
       ) : (
         <>
@@ -558,20 +591,20 @@ function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
             {hoveredH !== null && (
               <div style={{background:"var(--bg)",border:"1px solid var(--border2)",borderRadius:8,padding:"5px 12px",fontSize:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <span style={{fontWeight:700,color:PEAK_COLOR}}>{hoveredH%12||12}:00 {hoveredH<12?"AM":"PM"}</span>
-                <span style={{fontFamily:"var(--mono)",color:"var(--text)"}}>{heatmap[hoveredH] > 0 ? `${heatmap[hoveredH]} min` : "sin actividad"}</span>
+                <span style={{fontFamily:"var(--mono)",color:"var(--text)"}}>{heatmap[hoveredH] > 0 ? `${heatmap[hoveredH]} min` : "no activity"}</span>
               </div>
             )}
           </div>
 
           {/* Intensity legend */}
           <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <span style={{fontSize:14,color:"var(--text3)"}}>Menos</span>
+            <span style={{fontSize:14,color:"var(--text3)"}}>Less</span>
             <div style={{display:"flex",gap:2}}>
               {[0.05,0.25,0.5,0.75,1].map(v => (
                 <div key={v} style={{width:16,height:10,borderRadius:3,background:intensityBg(v)}}/>
               ))}
             </div>
-            <span style={{fontSize:14,color:"var(--text3)"}}>Más actividad</span>
+            <span style={{fontSize:14,color:"var(--text3)"}}>More activity</span>
           </div>
         </>
       )}
@@ -777,7 +810,7 @@ export default function App() {
     return billableCalls.filter(c => { const d = toDate(c.date); return d >= s && d <= e; });
   })();
   const heatmapCycleLabel = (() => {
-    if (heatmapScope === "all") return "Todos los ciclos";
+    if (heatmapScope === "all") return "All cycles";
     const cycleToUse = typeof heatmapScope === "number" ? PAY_CYCLES[heatmapScope] : currentCycle;
     return cycleToUse ? `${cycleToUse.start} → ${cycleToUse.end}` : "";
   })();
@@ -813,7 +846,7 @@ export default function App() {
   const scoreHours  = Math.min(10, todayCalls.length > 0 ? 10 : 0);
   const score       = Math.round(scoreGoal + scoreRhythm + scoreStreak + scoreHours);
   const scoreColor  = score >= 75 ? "var(--green)" : score >= 45 ? "var(--amber)" : "var(--red)";
-  const scoreLabel  = score >= 75 ? "Excelente" : score >= 45 ? "Bien" : score >= 20 ? "Flojo" : "Inactivo";
+  const scoreLabel  = score >= 75 ? "Excellent" : score >= 45 ? "Good" : score >= 20 ? "Slow" : "Inactive";
 
   // ── Functions ──────────────────────────────────────────────────────────────
 
@@ -872,7 +905,7 @@ export default function App() {
 
   function submitManual() {
     const dur = parseInt(manualForm.duration) || 0;
-    if (!dur) { showToast("⚠️ Duración inválida"); return; }
+    if (!dur) { showToast("⚠️ Invalid duration"); return; }
     const newCall = {
       customerId: manualForm.customerId || "Manual",
       date: todayStr, callStart: manualForm.startTime || getNowTimeStr(),
@@ -884,7 +917,8 @@ export default function App() {
     setShowManual(false);
     setManualForm({ customerId:"", startTime:"", endTime:"", duration:"", pay:"" });
     setLiveStart(null);
-    showToast("✅ Llamada agregada");
+    sfx.callAdded();
+    showToast("✅ Call added");
   }
 
   // Edit form
@@ -929,20 +963,20 @@ export default function App() {
       };
     }));
     setEditingId(null);
-    showToast("✏️ Actualizado");
+    showToast("✏️ Updated");
   }
 
   // Paste
   function handleParse() {
     setParseError("");
     const r = parseCallText(rawText);
-    if (!r) { setParseError("No pude interpretar el texto."); setParsed(null); return; }
+    if (!r) { setParseError("Could not parse the text."); setParsed(null); return; }
     setParsed(r);
   }
   function handleAdd() {
     if (!parsed) return;
     if (parsed.billable !== "Yes") { showToast("⚠️ No billable."); setParsed(null); setRawText(""); return; }
-    setCalls(prev => [...prev, parsed]); setParsed(null); setRawText(""); showToast("✅ Llamada agregada");
+    setCalls(prev => [...prev, parsed]); setParsed(null); setRawText(""); sfx.callAdded(); showToast("✅ Call added");
   }
 
   // Import / Export
@@ -950,20 +984,20 @@ export default function App() {
     if (!file) return;
     setImportError(""); setImportFileName(file.name);
     const isXLSX = /\.xlsx?$/i.test(file.name), isCSV = /\.csv$/i.test(file.name);
-    if (!isXLSX && !isCSV) { setImportError("Solo CSV o Excel."); return; }
+    if (!isXLSX && !isCSV) { setImportError("CSV or Excel only."); return; }
     try {
       let headers = [], rows = [];
       if (isCSV) { const text = await file.text(); ({ headers, rows } = parseCSVText(text)); }
       else {
         const buf = await file.arrayBuffer(); const XLSX = window.XLSX;
-        if (!XLSX) { setImportError("Librería no disponible."); return; }
+        if (!XLSX) { setImportError("Library unavailable."); return; }
         const wb = XLSX.read(buf, { type:"array" }); const ws = wb.Sheets[wb.SheetNames[0]];
         const data = XLSX.utils.sheet_to_json(ws, { header:1, defval:"" });
         headers = data[0].map(h => String(h).trim()); rows = data.slice(1).map(r => r.map(v => String(v).trim()));
       }
-      if (!headers.length) { setImportError("Archivo vacío."); return; }
+      if (!headers.length) { setImportError("Empty file."); return; }
       const preview = rowsToCallsSmart(rows, headers);
-      if (!preview.length) { setImportError("Sin filas válidas."); return; }
+      if (!preview.length) { setImportError("No valid rows."); return; }
       setImportPreview(preview);
       setImportStats({ total: preview.length, surge: preview.filter(c => c.surge).length, totalPay: preview.reduce((s, c) => s + c.pay, 0), totalMins: preview.reduce((s, c) => s + c.duration, 0) });
       setImportStep("preview");
@@ -973,7 +1007,7 @@ export default function App() {
   function confirmImport() {
     const existing = new Set(calls.map(c => `${c.customerId}-${c.date}-${c.callStart}`));
     const newCalls = importPreview.filter(c => !existing.has(`${c.customerId}-${c.date}-${c.callStart}`));
-    setCalls(prev => [...prev, ...newCalls]); setImportStep("done"); showToast(`✅ ${newCalls.length} importadas`);
+    setCalls(prev => [...prev, ...newCalls]); setImportStep("done"); sfx.callAdded(); showToast(`✅ ${newCalls.length} imported`);
   }
 
   function resetImport() {
@@ -986,20 +1020,20 @@ export default function App() {
   }
 
   function exportCSV() {
-    const rows = getExportRows(); if (!rows.length) { showToast("⚠️ Sin llamadas"); return; }
+    const rows = getExportRows(); if (!rows.length) { showToast("⚠️ No calls"); return; }
     const headers = Object.keys(rows[0]);
     const csv = [headers.join(","), ...rows.map(r => headers.map(h => '"' + String(r[h]).replace(/"/g, '""') + '"').join(","))].join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type:"text/csv;charset=utf-8;" }));
     const a = document.createElement("a"); a.href = url; a.download = `call-tracker-${today()}.csv`; a.click();
     URL.revokeObjectURL(url);
-    showToast("✅ CSV exportado");
+    showToast("✅ CSV exported");
   }
 
   function exportXLSX() {
-    const XLSX = window.XLSX; if (!XLSX) { showToast("⚠️ Librería no disponible"); return; }
-    const rows = getExportRows(); if (!rows.length) { showToast("⚠️ Sin llamadas"); return; }
-    const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Llamadas");
-    XLSX.writeFile(wb, `call-tracker-${today()}.xlsx`); showToast("✅ Excel exportado");
+    const XLSX = window.XLSX; if (!XLSX) { showToast("⚠️ Library unavailable"); return; }
+    const rows = getExportRows(); if (!rows.length) { showToast("⚠️ No calls"); return; }
+    const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Calls");
+    XLSX.writeFile(wb, `call-tracker-${today()}.xlsx`); showToast("✅ Excel exported");
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -1019,12 +1053,12 @@ export default function App() {
           <div style={{display:"flex",alignItems:"center",gap:12}}>
             <div style={{width:8,height:8,borderRadius:"50%",background:"var(--green2)",animation:"pulse 1s infinite"}}/>
             <div>
-              <div style={{fontSize:14,color:"var(--green2)",fontWeight:700,letterSpacing:1}}>EN LLAMADA</div>
+              <div style={{fontSize:14,color:"var(--green2)",fontWeight:700,letterSpacing:1}}>ON CALL</div>
               <div style={{fontSize:24,fontWeight:800,fontFamily:"var(--mono)",color:"var(--green2)",lineHeight:1}}>{fmtTime(liveSeconds)}</div>
             </div>
           </div>
           <div style={{display:"flex",gap:8}}>
-            <button className="action-btn" onClick={stopLiveCall}   style={{background:"var(--green2)",border:"none",borderRadius:8,color:"#fff",padding:"8px 16px",fontWeight:800,cursor:"pointer",fontSize:17}}>✓ Guardar</button>
+            <button className="action-btn" onClick={stopLiveCall}   style={{background:"var(--green2)",border:"none",borderRadius:8,color:"#fff",padding:"8px 16px",fontWeight:800,cursor:"pointer",fontSize:17}}>✅ Save</button>
             <button className="action-btn" onClick={cancelLiveCall} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:8,color:"var(--text2)",padding:"8px 14px",fontWeight:600,cursor:"pointer",fontSize:17}}>✕</button>
           </div>
         </div>
@@ -1044,7 +1078,7 @@ export default function App() {
         </div>
         <div style={{display:"flex",gap:8}}>
           <button onClick={() => { setTempGoal(config.dailyMoneyGoal); setShowGoal(true); }} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:8,color:"var(--text2)",padding:"7px 12px",cursor:"pointer",fontSize:16,fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
-            <span style={{color:"var(--amber)"}}>◎</span> Meta
+            <span style={{color:"var(--amber)"}}>🎯</span> Goal
           </button>
           <button onClick={() => setShowConfig(true)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:8,color:"var(--text2)",padding:"7px 12px",cursor:"pointer",fontSize:18}}>⚙</button>
         </div>
@@ -1055,17 +1089,17 @@ export default function App() {
       {/* Goal */}
       {showGoal && (
         <Modal onClose={() => setShowGoal(false)}>
-          <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>META DIARIA</div>
-          <div style={{fontSize:22,fontWeight:700,color:"var(--text)",marginBottom:20}}>¿Cuánto quieres ganar hoy?</div>
-          <label style={CC.label}>Monto en dólares</label>
+          <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>DAILY GOAL</div>
+          <div style={{fontSize:22,fontWeight:700,color:"var(--text)",marginBottom:20}}>How much do you want to earn today?</div>
+          <label style={CC.label}>Amount in dollars</label>
           <div style={{position:"relative",marginBottom:20}}>
             <div style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",color:"var(--amber)",fontWeight:700,fontSize:20,fontFamily:"var(--mono)"}}>$</div>
             <input type="number" step="0.01" min="0" value={tempGoal} onChange={e => setTempGoal(e.target.value)} autoFocus
               style={{...CC.input,paddingLeft:32,fontSize:24,fontFamily:"var(--mono)",fontWeight:800,color:"var(--amber)",border:"1px solid var(--amber)44"}}/>
           </div>
           <div style={{display:"flex",gap:8}}>
-            <button className="btn-primary" onClick={() => { const val=parseFloat(tempGoal)||30; const nc={...config,dailyMoneyGoal:val}; setConfig(nc); setTempConfig(nc); try{localStorage.setItem(STORAGE_CONFIG,JSON.stringify(nc));}catch{} setShowGoal(false); showToast("🎯 Meta: $"+val.toFixed(2)); }}
-              style={{flex:1,background:"var(--amber)",border:"none",borderRadius:10,color:"#000",padding:"12px",fontWeight:800,cursor:"pointer",fontSize:17}}>Guardar</button>
+            <button className="btn-primary" onClick={() => { const val=parseFloat(tempGoal)||30; const nc={...config,dailyMoneyGoal:val}; setConfig(nc); setTempConfig(nc); try{localStorage.setItem(STORAGE_CONFIG,JSON.stringify(nc));}catch{} setShowGoal(false); showToast("🎯 Goal: $"+val.toFixed(2)); }}
+              style={{flex:1,background:"var(--amber)",border:"none",borderRadius:10,color:"#000",padding:"12px",fontWeight:800,cursor:"pointer",fontSize:17}}>Save</button>
             <button onClick={() => setShowGoal(false)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"12px 16px",cursor:"pointer",fontSize:17}}>✕</button>
           </div>
         </Modal>
@@ -1074,12 +1108,12 @@ export default function App() {
       {/* Config / Import */}
       {showConfig && (
         <Modal onClose={() => { setShowConfig(false); resetImport(); }}>
-          <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>IMPORTAR</div>
-          <div style={{fontSize:22,fontWeight:700,color:"var(--text)",marginBottom:16}}>Cargar llamadas</div>
+          <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>IMPORT</div>
+          <div style={{fontSize:22,fontWeight:700,color:"var(--text)",marginBottom:16}}>Load calls</div>
 
           {/* Theme selector */}
           <div style={{marginBottom:20}}>
-            <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:10}}>TEMA</div>
+            <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:10}}>THEME</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
               {Object.entries(THEMES).map(([key, t]) => {
                 const active = (config.theme || "light") === key;
@@ -1108,16 +1142,16 @@ export default function App() {
           {importStep === "idle" && (
             <div>
               <button onClick={() => fileRef.current.click()} style={{width:"100%",background:"var(--bg)",border:"2px dashed var(--border2)",borderRadius:12,color:"var(--text2)",padding:"28px",fontWeight:600,cursor:"pointer",fontSize:17,textAlign:"center",marginBottom:16}}>
-                <div style={{fontSize:28,marginBottom:8}}>📂</div>
-                <div>Seleccionar CSV o Excel</div>
-                <div style={{fontSize:15,color:"var(--text3)",marginTop:4}}>Arrastra o haz clic</div>
+                <div style={{fontSize:28,marginBottom:8}}>📁</div>
+                <div>Select CSV or Excel</div>
+                <div style={{fontSize:15,color:"var(--text3)",marginTop:4}}>Drag or click</div>
               </button>
               {calls.length > 0 && (
                 <div>
-                  <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:10}}>EXPORTAR · {calls.length} llamadas</div>
+                  <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:10}}>EXPORT · {calls.length} calls</div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                     <button className="btn-primary" onClick={exportCSV} style={{background:"var(--bg)",border:"1px solid var(--cyan)44",borderRadius:10,color:"var(--cyan)",padding:"12px 8px",fontWeight:700,cursor:"pointer",fontSize:17,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-                      <span style={{fontSize:22}}>📄</span><span>CSV</span>
+                      <span style={{fontSize:22}}>✅</span><span>CSV</span>
                     </button>
                     <button className="btn-primary" onClick={exportXLSX} style={{background:"var(--bg)",border:"1px solid var(--green)44",borderRadius:10,color:"var(--green)",padding:"12px 8px",fontWeight:700,cursor:"pointer",fontSize:17,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
                       <span style={{fontSize:22}}>📊</span><span>Excel</span>
@@ -1133,13 +1167,13 @@ export default function App() {
               <div style={{background:"var(--bg)",borderRadius:10,padding:14,marginBottom:14}}>
                 <div style={{color:"var(--text)",fontWeight:700,marginBottom:8,fontSize:17}}>{importFileName}</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,textAlign:"center"}}>
-                  <div><div style={{fontSize:20,fontWeight:800,fontFamily:"var(--mono)",color:"var(--cyan)"}}>{importStats.total}</div><div style={{fontSize:14,color:"var(--text3)"}}>llamadas</div></div>
+                  <div><div style={{fontSize:20,fontWeight:800,fontFamily:"var(--mono)",color:"var(--cyan)"}}>{importStats.total}</div><div style={{fontSize:14,color:"var(--text3)"}}>calls</div></div>
                   <div><div style={{fontSize:20,fontWeight:800,fontFamily:"var(--mono)",color:"var(--green)"}}>${importStats.totalPay.toFixed(2)}</div><div style={{fontSize:14,color:"var(--text3)"}}>total</div></div>
-                  <div><div style={{fontSize:20,fontWeight:800,fontFamily:"var(--mono)",color:"var(--blue)"}}>{importStats.totalMins}m</div><div style={{fontSize:14,color:"var(--text3)"}}>minutos</div></div>
+                  <div><div style={{fontSize:20,fontWeight:800,fontFamily:"var(--mono)",color:"var(--blue)"}}>{importStats.totalMins}m</div><div style={{fontSize:14,color:"var(--text3)"}}>minutes</div></div>
                 </div>
               </div>
               <div style={{display:"flex",gap:8}}>
-                <button className="btn-primary" onClick={() => { confirmImport(); setShowConfig(false); }} style={{flex:1,background:"var(--green2)",border:"none",borderRadius:10,color:"var(--text)",padding:"12px",fontWeight:700,cursor:"pointer",fontSize:17}}>✅ Confirmar</button>
+                <button className="btn-primary" onClick={() => { confirmImport(); setShowConfig(false); }} style={{flex:1,background:"var(--green2)",border:"none",borderRadius:10,color:"var(--text)",padding:"12px",fontWeight:700,cursor:"pointer",fontSize:17}}>✅ Confirm</button>
                 <button onClick={resetImport} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"12px 16px",cursor:"pointer"}}>✕</button>
               </div>
             </div>
@@ -1148,8 +1182,8 @@ export default function App() {
           {importStep === "done" && (
             <div style={{textAlign:"center",padding:"20px 0"}}>
               <div style={{fontSize:32,marginBottom:8}}>✅</div>
-              <div style={{color:"var(--green)",fontWeight:700,marginBottom:16}}>Importado con éxito</div>
-              <button onClick={() => { resetImport(); setShowConfig(false); }} style={{background:"var(--bg)",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"10px 20px",cursor:"pointer",fontWeight:600}}>Cerrar</button>
+              <div style={{color:"var(--green)",fontWeight:700,marginBottom:16}}>Imported successfully</div>
+              <button onClick={() => { resetImport(); setShowConfig(false); }} style={{background:"var(--bg)",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"10px 20px",cursor:"pointer",fontWeight:600}}>Close</button>
             </div>
           )}
           <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" onChange={e => handleFileLoad(e.target.files[0])} style={{display:"none"}}/>
@@ -1159,10 +1193,10 @@ export default function App() {
       {/* Manual / Live */}
       {showManual && (
         <Modal onClose={() => { setShowManual(false); setLiveStart(null); }}>
-          <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>NUEVA LLAMADA</div>
-          <div style={{fontSize:20,fontWeight:700,color:"var(--text)",marginBottom:16}}>{liveStart ? "Guardar llamada grabada" : "Agregar manualmente"}</div>
+          <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>NEW CALL</div>
+          <div style={{fontSize:20,fontWeight:700,color:"var(--text)",marginBottom:16}}>{liveStart ? "Save recorded call" : "Add manually"}</div>
           <div style={{marginBottom:14}}>
-            <label style={CC.label}>Tarifa activa</label>
+            <label style={CC.label}>Active rate</label>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
               {RATES.map(r => { const active = activeRate === r.value; return (
                 <button key={r.value} className="rate-btn" onClick={() => { setActiveRate(r.value); setManualForm(p => ({...p, pay: String(parseFloat((parseInt(p.duration||0) * r.value).toFixed(2)))})); }}
@@ -1174,23 +1208,23 @@ export default function App() {
             </div>
           </div>
           <div style={{marginBottom:12}}>
-            <label style={CC.label}>ID Cliente</label>
-            <input type="text" placeholder="Opcional" value={manualForm.customerId} onChange={e => handleManualChange("customerId", e.target.value)} style={{...CC.input,fontSize:17}}/>
+            <label style={CC.label}>Customer ID</label>
+            <input type="text" placeholder="Optional" value={manualForm.customerId} onChange={e => handleManualChange("customerId", e.target.value)} style={{...CC.input,fontSize:17}}/>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-            <TimePicker label="HORA INICIO" value={manualForm.startTime} onChange={v => handleManualChange("startTime", v)}/>
-            <TimePicker label="HORA FIN"    value={manualForm.endTime}   onChange={v => handleManualChange("endTime", v)}/>
+            <TimePicker label="START TIME" value={manualForm.startTime} onChange={v => handleManualChange("startTime", v)}/>
+            <TimePicker label="END TIME"    value={manualForm.endTime}   onChange={v => handleManualChange("endTime", v)}/>
           </div>
           <div style={{marginBottom:12}}>
-            <label style={CC.label}>Minutos</label>
+            <label style={CC.label}>Minutes</label>
             <input type="number" placeholder="15" value={manualForm.duration} onChange={e => handleManualChange("duration", e.target.value)} style={{...CC.input,fontSize:18,fontFamily:"var(--mono)",fontWeight:700,color:"var(--cyan)"}}/>
           </div>
           <div style={{marginBottom:16}}>
-            <label style={CC.label}>Pago ($)</label>
+            <label style={CC.label}>Pay ($)</label>
             <input type="number" step="0.01" value={manualForm.pay} onChange={e => setManualForm(p => ({...p, pay: e.target.value}))} style={{...CC.input,fontSize:22,fontFamily:"var(--mono)",fontWeight:800,color:"var(--green)",border:"1px solid var(--green)33"}}/>
           </div>
           <div style={{display:"flex",gap:8}}>
-            <button className="btn-primary" onClick={submitManual} style={{flex:1,background:"var(--green2)",border:"none",borderRadius:10,color:"var(--text)",padding:"12px",fontWeight:700,cursor:"pointer",fontSize:17}}>+ Agregar</button>
+            <button className="btn-primary" onClick={submitManual} style={{flex:1,background:"var(--green2)",border:"none",borderRadius:10,color:"var(--text)",padding:"12px",fontWeight:700,cursor:"pointer",fontSize:17}}>+ Add</button>
             <button onClick={() => { setShowManual(false); setLiveStart(null); }} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"12px 16px",cursor:"pointer"}}>✕</button>
           </div>
         </Modal>
@@ -1199,10 +1233,10 @@ export default function App() {
       {/* Paste */}
       {showPaste && (
         <Modal onClose={() => { setShowPaste(false); setParsed(null); setRawText(""); }}>
-          <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>PEGAR DATOS</div>
-          <div style={{fontSize:20,fontWeight:700,color:"var(--text)",marginBottom:16}}>Pegar llamada</div>
+          <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>PASTE DATA</div>
+          <div style={{fontSize:20,fontWeight:700,color:"var(--text)",marginBottom:16}}>Paste call</div>
           <div style={{marginBottom:14}}>
-            <label style={CC.label}>Tarifa activa</label>
+            <label style={CC.label}>Active rate</label>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
               {RATES.map(r => { const active = activeRate === r.value; return (
                 <button key={r.value} className="rate-btn" onClick={() => setActiveRate(r.value)}
@@ -1213,26 +1247,26 @@ export default function App() {
               );})}
             </div>
           </div>
-          <label style={CC.label}>Datos de la llamada</label>
+          <label style={CC.label}>Call data</label>
           <textarea value={rawText} onChange={e => setRawText(e.target.value)} placeholder="191403/09/202608:17 AM3YesNo$0.36"
             style={{...CC.input,height:70,resize:"vertical",fontSize:16,fontFamily:"var(--mono)",marginBottom:8}}/>
           {parseError && <div style={{color:"var(--red)",fontSize:16,marginBottom:8}}>{parseError}</div>}
-          {!parsed && <button className="btn-primary" onClick={handleParse} style={{width:"100%",background:"var(--cyan)",border:"none",borderRadius:10,color:"#000",padding:"11px",fontWeight:700,cursor:"pointer",fontSize:17}}>Interpretar</button>}
+          {!parsed && <button className="btn-primary" onClick={handleParse} style={{width:"100%",background:"var(--cyan)",border:"none",borderRadius:10,color:"#000",padding:"11px",fontWeight:700,cursor:"pointer",fontSize:17}}>Parse</button>}
           {parsed && (
             <div style={{background:"var(--bg)",borderRadius:10,padding:14,border:`1px solid ${parsed.billable==="Yes"?"var(--green)44":"var(--red)44"}`}}>
               <div style={{fontWeight:700,color:parsed.billable==="Yes"?"var(--green)":"var(--red)",marginBottom:10,fontSize:17}}>{parsed.billable==="Yes"?"✅ Billable":"⛔ No Billable"}</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:12}}>
                 {(() => {
                   const callEnd = timeToMins(parsed.callStart) !== null ? minsToTime(timeToMins(parsed.callStart) + parsed.duration) : "—";
-                  return [["Cliente",parsed.customerId],["Fecha",parsed.date],["Inicio",parsed.callStart],["Fin",callEnd],["Duración",`${parsed.duration}m`],["Pago",`$${parsed.pay.toFixed(2)}`]]
+                  return [["Customer",parsed.customerId],["Date",parsed.date],["Start",parsed.callStart],["End",callEnd],["Duration",`${parsed.duration}m`],["Pay",`$${parsed.pay.toFixed(2)}`]]
                     .map(([k, v]) => (
                       <div key={k}><div style={{fontSize:14,color:"var(--text3)"}}>{k}</div><div style={{fontWeight:700,fontSize:17,fontFamily:"var(--mono)",color:"var(--text)"}}>{v}</div></div>
                     ));
                 })()}
               </div>
               {parsed.billable === "Yes"
-                ? <button className="btn-primary" onClick={() => { handleAdd(); setShowPaste(false); }} style={{width:"100%",background:"var(--green2)",border:"none",borderRadius:9,color:"var(--text)",padding:"10px",fontWeight:700,cursor:"pointer",fontSize:17}}>➕ Agregar</button>
-                : <button onClick={() => { setParsed(null); setRawText(""); }} style={{width:"100%",background:"transparent",border:"1px solid var(--border2)",borderRadius:9,color:"var(--text2)",padding:"10px",fontWeight:700,cursor:"pointer",fontSize:17}}>Descartar</button>
+                ? <button className="btn-primary" onClick={() => { handleAdd(); setShowPaste(false); }} style={{width:"100%",background:"var(--green2)",border:"none",borderRadius:9,color:"var(--text)",padding:"10px",fontWeight:700,cursor:"pointer",fontSize:17}}>➕ Add</button>
+                : <button onClick={() => { setParsed(null); setRawText(""); }} style={{width:"100%",background:"transparent",border:"1px solid var(--border2)",borderRadius:9,color:"var(--text2)",padding:"10px",fontWeight:700,cursor:"pointer",fontSize:17}}>Discard</button>
               }
             </div>
           )}
@@ -1242,26 +1276,26 @@ export default function App() {
       {/* Edit */}
       {editingId && (
         <Modal onClose={() => setEditingId(null)}>
-          <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>EDITAR LLAMADA</div>
-          <div style={{fontSize:20,fontWeight:700,color:"var(--text)",marginBottom:16}}>Editar llamada</div>
+          <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>EDIT CALL</div>
+          <div style={{fontSize:20,fontWeight:700,color:"var(--text)",marginBottom:16}}>Edit call</div>
           <div style={{marginBottom:12}}>
-            <label style={CC.label}>ID Cliente</label>
+            <label style={CC.label}>Customer ID</label>
             <input type="text" value={editForm.customerId||""} onChange={e => handleEditChange("customerId", e.target.value)} style={{...CC.input,fontSize:17}}/>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-            <TimePicker label="HORA INICIO" value={editForm.callStart} onChange={v => handleEditChange("callStart", v)}/>
-            <TimePicker label="HORA FIN"    value={editForm.callEnd}   onChange={v => handleEditChange("callEnd", v)}/>
+            <TimePicker label="START TIME" value={editForm.callStart} onChange={v => handleEditChange("callStart", v)}/>
+            <TimePicker label="END TIME"    value={editForm.callEnd}   onChange={v => handleEditChange("callEnd", v)}/>
           </div>
           <div style={{marginBottom:12}}>
-            <label style={CC.label}>Minutos</label>
+            <label style={CC.label}>Minutes</label>
             <input type="number" value={editForm.duration||""} onChange={e => handleEditChange("duration", e.target.value)} style={{...CC.input,fontSize:18,fontFamily:"var(--mono)",fontWeight:700,color:"var(--cyan)"}}/>
           </div>
           <div style={{marginBottom:16}}>
-            <label style={CC.label}>Pago ($)</label>
+            <label style={CC.label}>Pay ($)</label>
             <input type="number" step="0.01" value={editForm.pay||""} onChange={e => setEditForm(p => ({...p, pay: e.target.value}))} style={{...CC.input,fontSize:22,fontFamily:"var(--mono)",fontWeight:800,color:"var(--green)",border:"1px solid var(--green)33"}}/>
           </div>
           <div style={{display:"flex",gap:8}}>
-            <button className="btn-primary" onClick={() => saveEdit(editingId)} style={{flex:1,background:"var(--cyan)",border:"none",borderRadius:10,color:"#000",padding:"12px",fontWeight:700,cursor:"pointer",fontSize:17}}>💾 Guardar</button>
+            <button className="btn-primary" onClick={() => saveEdit(editingId)} style={{flex:1,background:"var(--cyan)",border:"none",borderRadius:10,color:"#000",padding:"12px",fontWeight:700,cursor:"pointer",fontSize:17}}>💾 Save</button>
             <button onClick={() => setEditingId(null)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"12px 16px",cursor:"pointer"}}>✕</button>
           </div>
         </Modal>
@@ -1277,23 +1311,23 @@ export default function App() {
             <div style={{...CC.cardGlow("var(--cyan)"),padding:24,marginBottom:12}} className="card">
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
                 <div>
-                  <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>INGRESOS HOY</div>
+                  <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>EARNINGS TODAY</div>
                   <div style={{fontSize:48,fontWeight:800,fontFamily:"var(--mono)",color:"var(--green)",lineHeight:1,marginTop:4}}>${todayMoney.toFixed(2)}</div>
                   <div style={{marginTop:10}}>
                     {minsGoalReached
-                      ? <div style={{fontSize:18,fontWeight:900,fontFamily:"var(--mono)",color:"var(--green)"}}>✓ Meta de minutos alcanzada</div>
+                      ? <div style={{fontSize:18,fontWeight:900,fontFamily:"var(--mono)",color:"var(--green)"}}>✓ Minute goal reached</div>
                       : <div style={{display:"flex",alignItems:"baseline",gap:6}}>
                           <div style={{fontSize:36,fontWeight:900,fontFamily:"var(--mono)",color:"var(--cyan)",lineHeight:1}}>{minsLeft}</div>
-                          <div style={{fontSize:17,fontWeight:700,color:"var(--cyan)"}}>min restantes</div>
+                          <div style={{fontSize:17,fontWeight:700,color:"var(--cyan)"}}>min remaining</div>
                         </div>
                     }
-                    <div style={{fontSize:15,color:"var(--text3)",marginTop:4,fontFamily:"var(--mono)"}}>{todayCalls.length} llamadas · {todayMins}/{minsNeeded} min hechos</div>
+                    <div style={{fontSize:15,color:"var(--text3)",marginTop:4,fontFamily:"var(--mono)"}}>{todayCalls.length} calls · {todayMins}/{minsNeeded} min done</div>
                   </div>
                 </div>
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:14,color:"var(--text3)",marginBottom:4}}>META</div>
+                  <div style={{fontSize:14,color:"var(--text3)",marginBottom:4}}>GOAL</div>
                   <div style={{fontSize:22,fontWeight:800,fontFamily:"var(--mono)",color:moneyPct>=100?"var(--green)":"var(--amber)"}}>{moneyPct}%</div>
-                  <div style={{fontSize:15,color:"var(--text3)"}}>de ${config.dailyMoneyGoal}</div>
+                  <div style={{fontSize:15,color:"var(--text3)"}}>of ${config.dailyMoneyGoal}</div>
                 </div>
               </div>
               <div style={{background:"var(--bg)",borderRadius:99,height:6,overflow:"hidden"}}>
@@ -1301,7 +1335,7 @@ export default function App() {
               </div>
               {/* Idle cost */}
               <div style={{marginTop:14,paddingTop:14,borderTop:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>SIN LLAMADAS</div>
+                <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>IDLE</div>
                 <div style={{fontFamily:"var(--mono)",fontWeight:900,fontSize:22,color:"var(--red)"}}>-${(idleSecs / 60 * 0.12).toFixed(2)}</div>
               </div>
             </div>
@@ -1309,9 +1343,9 @@ export default function App() {
             {/* Action buttons */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
               {[
-                { label: liveActive ? "⏹ Detener" : "▶ En vivo", active: liveActive, color:"var(--green)",  action: () => liveActive ? stopLiveCall() : startLiveCall() },
-                { label: "✏️ Manual",                             active: false,       color:"var(--cyan)",   action: () => setShowManual(true) },
-                { label: "📋 Pegar",                              active: false,       color:"var(--purple)", action: () => setShowPaste(true) },
+                { label: liveActive ? "⏹️ Stop" : "🔴 Live", active: liveActive, color:"var(--green)",  action: () => liveActive ? stopLiveCall() : startLiveCall() },
+                { label: "✍️ Manual",                             active: false,       color:"var(--cyan)",   action: () => setShowManual(true) },
+                { label: "📋 Paste",                              active: false,       color:"var(--purple)", action: () => setShowPaste(true) },
               ].map(btn => (
                 <button key={btn.label} className="action-btn" onClick={btn.action} style={{padding:"16px 8px",borderRadius:14,border:`1px solid ${btn.active?btn.color:"var(--border)"}`,cursor:"pointer",background:btn.active?`${btn.color}11`:"var(--bg2)",color:btn.active?btn.color:"var(--text)",fontWeight:700,fontSize:16,display:"flex",flexDirection:"column",alignItems:"center",gap:6,boxShadow:btn.active?`0 0 14px ${btn.color}22`:"none",transition:"all .15s"}}>
                   <span style={{fontSize:22}}>{btn.label.split(" ")[0]}</span>
@@ -1323,14 +1357,14 @@ export default function App() {
             {/* Today's calls */}
             <div style={{...CC.card,padding:20}} className="card">
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-                <div style={{fontWeight:700,color:"var(--text)",fontSize:17}}>Llamadas de hoy</div>
+                <div style={{fontWeight:700,color:"var(--text)",fontSize:17}}>Today's calls</div>
                 <div style={{fontSize:16,fontFamily:"var(--mono)",color:"var(--text2)"}}>{todayCalls.length}</div>
               </div>
               {todayCalls.length === 0 && (
                 <div style={{textAlign:"center",padding:"24px 0",color:"var(--text3)"}}>
                   <div style={{fontSize:32,marginBottom:8}}>📞</div>
-                  <div style={{fontSize:17}}>Sin llamadas hoy</div>
-                  <div style={{fontSize:15,marginTop:4}}>Usa los botones de arriba para registrar</div>
+                  <div style={{fontSize:17}}>No calls today</div>
+                  <div style={{fontSize:15,marginTop:4}}>Use the buttons above to log calls</div>
                 </div>
               )}
               {todayCalls.map((c, i) => (
@@ -1359,14 +1393,14 @@ export default function App() {
           <div>
             {/* Score */}
             <div style={{...CC.cardGlow(scoreColor),padding:24,marginBottom:12,textAlign:"center"}} className="card">
-              <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1.5,marginBottom:8}}>SCORE DEL DÍA</div>
+              <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1.5,marginBottom:8}}>DAY SCORE</div>
               <div style={{fontSize:72,fontWeight:900,fontFamily:"var(--mono)",color:scoreColor,lineHeight:1}}>{score}</div>
               <div style={{fontSize:17,color:scoreColor,fontWeight:600,marginTop:6,letterSpacing:.5}}>{scoreLabel}</div>
               <div style={{marginTop:14,background:"var(--bg)",borderRadius:99,height:6,overflow:"hidden"}}>
                 <div style={{width:`${score}%`,height:"100%",background:scoreColor,borderRadius:99,transition:"width .6s",boxShadow:`0 0 8px ${scoreColor}66`}}/>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginTop:14}}>
-                {[["Meta",Math.round(scoreGoal),40,"var(--green)"],["Ritmo",Math.round(scoreRhythm),30,"var(--cyan)"],["Racha",Math.round(scoreStreak),20,"var(--amber)"],["Activo",Math.round(scoreHours),10,"var(--purple)"]].map(([l,v,max,c]) => (
+                {[["Goal",Math.round(scoreGoal),40,"var(--green)"],["Rhythm",Math.round(scoreRhythm),30,"var(--cyan)"],["Streak",Math.round(scoreStreak),20,"var(--amber)"],["Active",Math.round(scoreHours),10,"var(--purple)"]].map(([l,v,max,c]) => (
                   <div key={l} style={{background:"var(--bg)",borderRadius:8,padding:"8px 4px"}}>
                     <div style={{fontSize:17,fontWeight:800,fontFamily:"var(--mono)",color:c}}>{v}<span style={{fontSize:12,color:"var(--text3)"}}>/{max}</span></div>
                     <div style={{fontSize:14,color:"var(--text3)",marginTop:2}}>{l}</div>
@@ -1377,14 +1411,14 @@ export default function App() {
 
             {/* Comparisons */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-              {[["vs Ayer",todayMoney,yestMoney,weekMins,yestMins],["vs Sem. pasada",weekMoney,lwMoney,weekMins,lwMins]].map(([label,curM,prevM,curMin,prevMin]) => {
+              {[["vs Yesterday",todayMoney,yestMoney,weekMins,yestMins],["vs Last week",weekMoney,lwMoney,weekMins,lwMins]].map(([label,curM,prevM,curMin,prevMin]) => {
                 const diffM = curM - prevM, diffMin = curMin - prevMin, up = diffM >= 0;
                 return (
                   <div key={label} style={{...CC.card,padding:14}} className="card">
                     <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:.8,marginBottom:8}}>{label.toUpperCase()}</div>
                     <div style={{fontSize:22,fontWeight:800,fontFamily:"var(--mono)",color:up?"var(--green)":"var(--red)"}}>{up?"+":""}{diffM.toFixed(2)}<span style={{fontSize:15}}>$</span></div>
                     <div style={{fontSize:15,fontFamily:"var(--mono)",color:diffMin>=0?"var(--cyan)":"var(--red)",marginTop:2}}>{diffMin>=0?"+":""}{diffMin}m</div>
-                    <div style={{fontSize:14,color:"var(--text3)",marginTop:6}}>antes: ${prevM.toFixed(2)}</div>
+                    <div style={{fontSize:14,color:"var(--text3)",marginTop:6}}>prev: ${prevM.toFixed(2)}</div>
                   </div>
                 );
               })}
@@ -1393,9 +1427,9 @@ export default function App() {
             {/* Cycle projection */}
             {currentCycle && (
               <div style={{...CC.cardGlow("var(--amber)"),padding:20,marginBottom:12}} className="card">
-                <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>PROYECCIÓN DEL CICLO</div>
+                <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>CYCLE PROJECTION</div>
                 <div style={{fontSize:36,fontWeight:900,fontFamily:"var(--mono)",color:"var(--amber)"}}>${projection !== null ? projection.toFixed(2) : "--"}</div>
-                <div style={{fontSize:15,color:"var(--text2)",marginTop:2}}>A este ritmo al final del ciclo</div>
+                <div style={{fontSize:15,color:"var(--text2)",marginTop:2}}>At this rate by end of cycle</div>
               </div>
             )}
 
@@ -1448,9 +1482,9 @@ export default function App() {
                 <div style={{...CC.card,padding:20,marginBottom:12}} className="card">
                   {/* Header with toggle */}
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-                    <div style={{fontSize:17,fontWeight:700,color:"var(--text)"}}>Ritmo entre llamadas</div>
+                    <div style={{fontSize:17,fontWeight:700,color:"var(--text)"}}>Call rhythm</div>
                     <div style={{display:"flex",gap:4,background:"var(--bg)",borderRadius:8,padding:3}}>
-                      {[["today","Hoy"],["cycle","Ciclo"]].map(([v,l]) => (
+                      {[["today","Today"],["cycle","Cycle"]].map(([v,l]) => (
                         <button key={v} onClick={() => setRhythmView(v)}
                           style={{fontSize:14,fontWeight:700,padding:"4px 10px",borderRadius:6,border:"none",cursor:"pointer",
                             background: rhythmView===v ? "var(--cyan)" : "transparent",
@@ -1465,18 +1499,18 @@ export default function App() {
                   {/* HOY */}
                   {rhythmView === "today" && (
                     <>
-                      <div style={{fontSize:14,color:"var(--text3)",marginBottom:10}}>objetivo: <span style={{color:"var(--green)",fontWeight:700}}>≤5 min</span></div>
+                      <div style={{fontSize:14,color:"var(--text3)",marginBottom:10}}>goal: <span style={{color:"var(--green)",fontWeight:700}}>≤5 min</span></div>
                       {total === 0 ? (
                         <div style={{textAlign:"center",padding:"20px 0",color:"var(--text3)",fontSize:17}}>
                           <div style={{fontSize:28,marginBottom:6}}>📞</div>
-                          Necesitas al menos 2 llamadas
+                          You need at least 2 calls
                         </div>
                       ) : (
                         <>
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
                             <div style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
                               <div style={{fontSize:22,fontWeight:900,fontFamily:"var(--mono)",color:avgGap<=5?"var(--green)":avgGap<=15?"var(--amber)":"var(--red)",lineHeight:1}}>{avgGap}m</div>
-                              <div style={{fontSize:12,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>PROMEDIO</div>
+                              <div style={{fontSize:12,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>AVG</div>
                             </div>
                             <div style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
                               <div style={{display:"flex",alignItems:"baseline",justifyContent:"center",gap:4}}>
@@ -1487,7 +1521,7 @@ export default function App() {
                             </div>
                             <div style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
                               <div style={{fontSize:22,fontWeight:900,fontFamily:"var(--mono)",color:"var(--text2)",lineHeight:1}}>{total}</div>
-                              <div style={{fontSize:12,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>PAUSAS</div>
+                              <div style={{fontSize:12,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>GAPS</div>
                             </div>
                           </div>
                           <div style={{marginBottom:10}}>
@@ -1503,12 +1537,12 @@ export default function App() {
                                   <span style={{fontSize:14,color:"var(--text2)",fontFamily:"var(--mono)"}}>{count} <span style={{color:"var(--text3)"}}>{label}</span></span>
                                 </div>
                               ))}
-                              <div style={{fontSize:14,color:pctGreen>=70?"var(--green)":pctGreen>=40?"var(--amber)":"var(--red)",fontWeight:700}}>{pctGreen}% en objetivo</div>
+                              <div style={{fontSize:14,color:pctGreen>=70?"var(--green)":pctGreen>=40?"var(--amber)":"var(--red)",fontWeight:700}}>{pctGreen}% on target</div>
                             </div>
                           </div>
                           {top3.length > 0 && (
                             <div style={{borderTop:"1px solid var(--border)",paddingTop:12,marginTop:4}}>
-                              <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:.8,marginBottom:8}}>PAUSAS MÁS LARGAS</div>
+                              <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:.8,marginBottom:8}}>LONGEST GAPS</div>
                               <div style={{display:"flex",flexDirection:"column",gap:6}}>
                                 {top3.map((g, i) => (
                                   <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -1530,7 +1564,7 @@ export default function App() {
                       {cycleRhythmDays.length === 0 ? (
                         <div style={{textAlign:"center",padding:"20px 0",color:"var(--text3)",fontSize:17}}>
                           <div style={{fontSize:28,marginBottom:6}}>📅</div>
-                          Sin datos de ritmo en este ciclo
+                          No rhythm data for this cycle
                         </div>
                       ) : (
                         <>
@@ -1543,15 +1577,15 @@ export default function App() {
                               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
                                 <div style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
                                   <div style={{fontSize:22,fontWeight:900,fontFamily:"var(--mono)",color:cycleAvg<=5?"var(--green)":cycleAvg<=15?"var(--amber)":"var(--red)",lineHeight:1}}>{cycleAvg}m</div>
-                                  <div style={{fontSize:12,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>PROM. CICLO</div>
+                                  <div style={{fontSize:12,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>CYCLE AVG</div>
                                 </div>
                                 <div style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
                                   <div style={{fontSize:22,fontWeight:900,fontFamily:"var(--mono)",color:cyclePct>=70?"var(--green)":cyclePct>=40?"var(--amber)":"var(--red)",lineHeight:1}}>{cyclePct}%</div>
-                                  <div style={{fontSize:12,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>EN OBJETIVO</div>
+                                  <div style={{fontSize:12,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>ON TARGET</div>
                                 </div>
                                 <div style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
                                   <div style={{fontSize:22,fontWeight:900,fontFamily:"var(--mono)",color:"var(--text2)",lineHeight:1}}>{cycleRhythmDays.length}</div>
-                                  <div style={{fontSize:12,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>DÍAS CON DATA</div>
+                                  <div style={{fontSize:12,color:"var(--text3)",marginTop:4,fontWeight:600,letterSpacing:.5}}>DAYS WITH DATA</div>
                                 </div>
                               </div>
                             );
@@ -1624,14 +1658,14 @@ export default function App() {
 
               return (
                 <div style={{...CC.card,padding:20,marginBottom:12}} className="card">
-                  <div style={{fontSize:17,fontWeight:700,color:"var(--text)",marginBottom:14}}>Racha del ciclo</div>
+                  <div style={{fontSize:17,fontWeight:700,color:"var(--text)",marginBottom:14}}>Cycle streak</div>
 
                   {/* 3 stats */}
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
                     {[
-                      ["Racha actual", cycleStreak > 0 ? `${cycleStreak}d 🔥` : "0d", "var(--amber)"],
-                      ["Días activos", `${activeCount}/${totalDays}`, "var(--cyan2)"],
-                      ["Días restantes", `${daysLeft}d`, daysLeft <= 2 ? "var(--red)" : "var(--text2)"],
+                      ["Current streak", cycleStreak > 0 ? `${cycleStreak}d 🔥` : "0d", "var(--amber)"],
+                      ["Active days", `${activeCount}/${totalDays}`, "var(--cyan2)"],
+                      ["Days remaining", `${daysLeft}d`, daysLeft <= 2 ? "var(--red)" : "var(--text2)"],
                     ].map(([label, val, color]) => (
                       <div key={label} style={{background:"var(--bg)",borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
                         <div style={{fontSize:19,fontWeight:900,fontFamily:"var(--mono)",color,lineHeight:1}}>{val}</div>
@@ -1643,19 +1677,19 @@ export default function App() {
                   {/* Goal compliance bar */}
                   <div style={{marginBottom:16}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
-                      <span style={{fontSize:15,color:"var(--text2)",fontWeight:500}}>Cumplimiento de meta diaria</span>
-                      <span style={{fontSize:16,fontWeight:700,fontFamily:"var(--mono)",color:goalColor}}>{goalDays}/{activeCount} días</span>
+                      <span style={{fontSize:15,color:"var(--text2)",fontWeight:500}}>Daily goal compliance</span>
+                      <span style={{fontSize:16,fontWeight:700,fontFamily:"var(--mono)",color:goalColor}}>{goalDays}/{activeCount} days</span>
                     </div>
                     <div style={{background:"var(--bg)",borderRadius:99,height:8,overflow:"hidden"}}>
                       <div style={{width:`${goalPct}%`,height:"100%",borderRadius:99,background:goalColor,transition:"width .4s"}}/>
                     </div>
                     <div style={{fontSize:14,color:"var(--text3)",marginTop:4}}>
-                      {activeCount === 0 ? "Sin días activos aún" : `${goalPct}% de los días activos llegaste a $${dailyGoal}`}
+                      {activeCount === 0 ? "No active days yet" : `${goalPct}% of active days you reached $${dailyGoal}`}
                     </div>
                   </div>
 
                   {/* Day chips */}
-                  <div style={{fontSize:14,fontWeight:700,color:"var(--text3)",letterSpacing:.8,textTransform:"uppercase",marginBottom:8}}>Días del ciclo</div>
+                  <div style={{fontSize:14,fontWeight:700,color:"var(--text3)",letterSpacing:.8,textTransform:"uppercase",marginBottom:8}}>Cycle days</div>
                   <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
                     {cycleDays.map((d, i) => {
                       const isToday  = d === todayStr;
@@ -1694,10 +1728,10 @@ export default function App() {
                   {/* Legend */}
                   <div style={{display:"flex",gap:12,marginTop:12,flexWrap:"wrap"}}>
                     {[
-                      ["Meta cumplida", "color-mix(in srgb, var(--green) 25%, transparent)", "1px solid var(--green)"],
-                      ["Activo",        "color-mix(in srgb, var(--cyan) 12%, transparent)",  "1px solid var(--cyan2)"],
-                      ["Sin actividad", "var(--bg)",           "1px solid var(--border)"],
-                      ["Hoy",           "transparent",         "2px solid var(--amber)"],
+                      ["Goal reached", "color-mix(in srgb, var(--green) 25%, transparent)", "1px solid var(--green)"],
+                      ["Active", "color-mix(in srgb, var(--cyan) 12%, transparent)",  "1px solid var(--cyan2)"],
+                      ["No activity", "var(--bg)",           "1px solid var(--border)"],
+                      ["Today", "transparent",         "2px solid var(--amber)"],
                     ].map(([label, bg, border]) => (
                       <div key={label} style={{display:"flex",alignItems:"center",gap:5}}>
                         <div style={{width:10,height:10,borderRadius:3,background:bg,border}}/>
@@ -1715,11 +1749,11 @@ export default function App() {
         {tab === "week" && (
           <div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
-              <StatBox label="Minutos semana"  value={`${weekMins}m`}             color="var(--cyan)"/>
-              <StatBox label="Ingresos semana" value={`$${weekMoney.toFixed(2)}`} color="var(--green)"/>
+              <StatBox label="Week minutes"  value={`${weekMins}m`}             color="var(--cyan)"/>
+              <StatBox label="Week earnings" value={`$${weekMoney.toFixed(2)}`} color="var(--green)"/>
             </div>
             <div style={{...CC.card,padding:20}} className="card">
-              <div style={{fontWeight:700,marginBottom:16,fontSize:17}}>Minutos por día</div>
+              <div style={{fontWeight:700,marginBottom:16,fontSize:17}}>Minutes per day</div>
               {weekData.map(d => (
                 <div key={d.date} style={{marginBottom:14}}>
                   <div style={{display:"flex",justifyContent:"space-between",fontSize:16,marginBottom:6}}>
@@ -1739,11 +1773,11 @@ export default function App() {
         {tab === "cycle" && (
           <div>
             <div style={{display:"flex",gap:8,marginBottom:16}}>
-              <Pill active={cycleView==="current"} onClick={() => setCycleView("current")}>Ciclo actual</Pill>
-              <Pill active={cycleView==="all"}     onClick={() => setCycleView("all")}>Todos</Pill>
+              <Pill active={cycleView==="current"} onClick={() => setCycleView("current")}>Current cycle</Pill>
+              <Pill active={cycleView==="all"}     onClick={() => setCycleView("all")}>All</Pill>
             </div>
             {cycleView === "current" && (!currentCycle
-              ? <div style={{color:"var(--text3)",fontSize:17,textAlign:"center",padding:"32px 0"}}>No hay ciclo activo.</div>
+              ? <div style={{color:"var(--text3)",fontSize:17,textAlign:"center",padding:"32px 0"}}>No active cycle.</div>
               : (() => {
                   const stats    = getCycleStats(currentCycle);
                   const daysLeft = daysUntil(currentCycle.end), dtp = daysUntil(currentCycle.payDate);
@@ -1756,11 +1790,11 @@ export default function App() {
                       <div style={{...CC.cardGlow("var(--cyan)"),padding:20,marginBottom:12}} className="card">
                         <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}>
                           <div>
-                            <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>PERÍODO</div>
+                            <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>PERIOD</div>
                             <div style={{fontWeight:700,fontSize:17,color:"var(--cyan)",fontFamily:"var(--mono)"}}>{currentCycle.start} → {currentCycle.end}</div>
                           </div>
                           <div style={{textAlign:"right"}}>
-                            <div style={{fontSize:14,color:"var(--text3)"}}>COBRO</div>
+                            <div style={{fontSize:14,color:"var(--text3)"}}>PAYDAY</div>
                             <div style={{fontWeight:700,color:"var(--amber)",fontFamily:"var(--mono)",fontSize:17}}>{currentCycle.payDate}</div>
                           </div>
                         </div>
@@ -1768,15 +1802,15 @@ export default function App() {
                           <div style={{width:`${pct}%`,height:"100%",background:"linear-gradient(90deg,var(--cyan),var(--green))",borderRadius:99}}/>
                         </div>
                         <div style={{display:"flex",justifyContent:"space-between",fontSize:15,color:"var(--text3)",fontFamily:"var(--mono)"}}>
-                          <span>Día {passed}/{total}</span>
-                          <span>{daysLeft > 0 ? `${daysLeft}d restantes` : "Cerrado"}</span>
+                          <span>Day {passed}/{total}</span>
+                          <span>{daysLeft > 0 ? `${daysLeft}d remaining` : "Closed"}</span>
                         </div>
                       </div>
                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                        <StatBox label="Minutos"       value={`${stats.mins}m`}             color="var(--cyan)"/>
-                        <StatBox label="Ganado"        value={`$${stats.money.toFixed(2)}`} color="var(--green)"/>
-                        <StatBox label="Llamadas"      value={stats.count}                  color="var(--amber)"/>
-                        <StatBox label="Días p/cobrar" value={Math.max(dtp, 0)}             color="var(--purple)"/>
+                        <StatBox label="Minutes"       value={`${stats.mins}m`}             color="var(--cyan)"/>
+                        <StatBox label="Earned"        value={`$${stats.money.toFixed(2)}`} color="var(--green)"/>
+                        <StatBox label="Calls"      value={stats.count}                  color="var(--amber)"/>
+                        <StatBox label="Days to pay" value={Math.max(dtp, 0)}             color="var(--purple)"/>
                       </div>
                     </div>
                   );
@@ -1791,7 +1825,7 @@ export default function App() {
                 <div key={i} style={{...CC.card,padding:16,marginBottom:8,border:`1px solid ${isCurrent?"var(--cyan)44":"var(--border)"}`,opacity:isPast&&!isCurrent?0.5:1}} className="card">
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div>
-                      {isCurrent && <span style={{fontSize:12,background:"var(--cyan)22",color:"var(--cyan)",padding:"2px 8px",borderRadius:6,marginBottom:6,display:"inline-block",fontWeight:700}}>ACTUAL</span>}
+                      {isCurrent && <span style={{fontSize:12,background:"var(--cyan)22",color:"var(--cyan)",padding:"2px 8px",borderRadius:6,marginBottom:6,display:"inline-block",fontWeight:700}}>CURRENT</span>}
                       <div style={{fontSize:16,fontWeight:700,fontFamily:"var(--mono)",color:isCurrent?"var(--cyan)":"var(--text)"}}>{cycle.start} → {cycle.end}</div>
                       <div style={{fontSize:15,color:"var(--amber)",marginTop:2,fontFamily:"var(--mono)"}}>{cycle.payDate}{!isPast&&dtp>0&&<span style={{color:"var(--text3)",marginLeft:6}}>({dtp}d)</span>}</div>
                     </div>
@@ -1811,8 +1845,8 @@ export default function App() {
           <div>
             {sortedDates.length === 0 && (
               <div style={{textAlign:"center",padding:"48px 0",color:"var(--text3)"}}>
-                <div style={{fontSize:32,marginBottom:8}}>🗂</div>
-                <div>Sin historial aún</div>
+                <div style={{fontSize:32,marginBottom:8}}>📭</div>
+                <div>No history yet</div>
               </div>
             )}
             {sortedDates.map(date => {
@@ -1832,7 +1866,7 @@ export default function App() {
                       {surgeCount > 0 && <span style={{fontSize:12,background:"#fef3c7",color:"var(--amber)",padding:"2px 7px",borderRadius:6,fontWeight:700}}>⚡{surgeCount}</span>}
                     </div>
                     <div style={{display:"flex",alignItems:"center",gap:12}}>
-                      <span style={{fontSize:15,color:"var(--text3)",fontFamily:"var(--mono)"}}>{dayCalls.length} llamadas</span>
+                      <span style={{fontSize:15,color:"var(--text3)",fontFamily:"var(--mono)"}}>{dayCalls.length} calls</span>
                       <span style={{fontSize:16,fontFamily:"var(--mono)",color:"var(--cyan)"}}>{mins}m</span>
                       <span style={{fontSize:17,fontFamily:"var(--mono)",fontWeight:700,color:"var(--green)"}}>${money.toFixed(2)}</span>
                     </div>
@@ -1865,12 +1899,19 @@ export default function App() {
 
       </div>
 
+      {/* Footer */}
+      <div style={{textAlign:"center",padding:"12px 20px 24px",display:"flex",justifyContent:"center",alignItems:"center",gap:16}}>
+        <a href="mailto:renatadclarranaga@gmail.com" style={{fontSize:11,color:"var(--text3)",textDecoration:"none",fontFamily:"var(--mono)"}}>Contact me</a>
+        <span style={{color:"var(--border2)"}}>·</span>
+        <a href="https://github.com/rendelarr" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"var(--text3)",textDecoration:"none",fontFamily:"var(--mono)"}}>github/rendelarr</a>
+      </div>
+
       {/* Bottom nav */}
       <div style={{position:"fixed",bottom:0,left:0,right:0,background:"var(--bg2)",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"space-around",padding:"8px 0 14px",zIndex:100}}>
         {TABS.map(t => {
           const active = tab === t.id;
           return (
-            <button key={t.id} className="nav-item" onClick={() => setTab(t.id)} style={{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"4px 8px",color:active?"var(--cyan)":"var(--text3)",transition:"color .15s",minWidth:40}}>
+            <button key={t.id} className="nav-item" onClick={() => { sfx.tabSwitch(); setTab(t.id); }} style={{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"4px 8px",color:active?"var(--cyan)":"var(--text3)",transition:"color .15s",minWidth:40}}>
               <div style={{fontSize:18,lineHeight:1,filter:active?"drop-shadow(0 0 4px var(--cyan))":"none"}}>{t.icon}</div>
               <div style={{fontSize:12,fontWeight:active?700:400,letterSpacing:.3}}>{t.label}</div>
               {active && <div style={{width:14,height:2,background:"var(--cyan)",borderRadius:99,boxShadow:"0 0 6px var(--cyan)"}}/>}
