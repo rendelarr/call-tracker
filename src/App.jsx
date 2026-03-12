@@ -4,7 +4,18 @@ import { useState, useEffect, useRef } from "react";
 
 const STORAGE_KEY    = "call_tracker_data";
 const STORAGE_CONFIG = "call_tracker_config";
-const defaultConfig  = { dailyMoneyGoal: 30, theme: "light" };
+const STORAGE_CYCLES = "mochi_cycles";
+const defaultConfig  = { dailyMoneyGoal: 30, theme: "light", baseRate: 0.12 };
+
+function getRates(base = 0.12) {
+  const r = v => Math.round(v * 100) / 100;
+  return [
+    { value: r(base),       label: "Normal", color: "#7a8a9a", icon: "⚪" },
+    { value: r(base+0.01),  label: "Bronce", color: "#c47d3a", icon: "🥉" },
+    { value: r(base+0.02),  label: "Silver",  color: "#8fa8c2", icon: "🥈" },
+    { value: r(base+0.03),  label: "Gold",   color: "#ffb800", icon: "🥇" },
+  ];
+}
 
 const THEMES = {
   light: {
@@ -36,13 +47,6 @@ const THEMES = {
     "--text":"#e2e8f4","--text2":"#8892aa","--text3":"#3a4260",
   },
 };
-
-const RATES = [
-  { value: 0.12, label: "Normal", color: "#7a8a9a", icon: "⚪" },
-  { value: 0.13, label: "Bronce", color: "#c47d3a", icon: "🥉" },
-  { value: 0.14, label: "Silver",  color: "#8fa8c2", icon: "🥈" },
-  { value: 0.15, label: "Gold",   color: "#ffb800", icon: "🥇" },
-];
 
 const PAY_CYCLES = [
   { start:"12/13/2025", end:"12/26/2025", payDate:"12/31/2025" },
@@ -306,9 +310,9 @@ function getStreak(activeDates) {
   return s;
 }
 
-function getCurrentCycle() {
+function getCurrentCycle(cycles) {
   const now = new Date(); now.setHours(0,0,0,0);
-  return PAY_CYCLES.find(c => {
+  return cycles.find(c => {
     const s = toDate(c.start), e = toDate(c.end);
     return now >= s && now <= e;
   }) || null;
@@ -452,7 +456,7 @@ const StatBox = ({ label, value, color = "var(--cyan)", sub }) => (
   </div>
 );
 
-function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
+function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycles }) {
   const [hoveredH, setHoveredH] = useState(null);
   const nowH      = new Date().getHours();
   const HOURS     = Array.from({length:24}, (_, i) => i);
@@ -484,8 +488,8 @@ function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
   const fmtH = h => `${h%12||12}${h<12?"am":"pm"}`;
   const medals = ["🥇","🥈","🥉"];
 
-  // Build dropdown options: all PAY_CYCLES + "Todos"
-  const cycleOptions = PAY_CYCLES.map((c, i) => ({ value: i, label: `${c.start} → ${c.end}` }));
+  // Build dropdown options: all cycles + "Todos"
+  const cycleOptions = cycles.map((c, i) => ({ value: i, label: `${c.start} → ${c.end}` }));
 
   return (
     <div style={{...CC.card,padding:20,marginBottom:12}} className="card">
@@ -536,7 +540,7 @@ function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
           <option value="cycle">Current cycle</option>
           <option value="all">All cycles</option>
           <optgroup label="Previous cycles">
-            {cycleOptions.filter(o => toDate(PAY_CYCLES[o.value].end) < new Date()).map(o => (
+            {cycleOptions.filter(o => toDate(cycles[o.value].end) < new Date()).map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </optgroup>
@@ -687,6 +691,77 @@ function MochiLogo({ size = 4 }) {
   );
 }
 
+// ─── Tooltip ──────────────────────────────────────────────────────────────────
+
+function InfoTip({ id, text, activeId, setActiveId }) {
+  const handleClick = (e) => {
+    e.stopPropagation();
+    const isOpen = activeId && activeId.id === id;
+    if (isOpen) { setActiveId(null); return; }
+    const r = e.currentTarget.getBoundingClientRect();
+    const spaceAbove = r.top;
+    const showBelow  = spaceAbove < 160; // flip if too close to top
+    const rawLeft    = r.left + r.width / 2;
+    const left       = Math.min(Math.max(rawLeft, 120), window.innerWidth - 120);
+    setActiveId({ id, x: left, y: r.top, bottom: r.bottom, showBelow });
+  };
+
+  const isOpen    = activeId && activeId.id === id;
+  const showBelow = isOpen && activeId.showBelow;
+  const tipX      = isOpen ? activeId.x : 0;
+  const tipY      = isOpen ? (showBelow ? activeId.bottom + 8 : activeId.y - 8) : 0;
+
+  return (
+    <span style={{display:"inline-flex",alignItems:"center",marginLeft:5}}>
+      <button
+        onClick={handleClick}
+        style={{background:"none",border:"none",cursor:"pointer",padding:0,lineHeight:1,fontSize:14,color:"var(--text3)",display:"inline-flex"}}
+        aria-label="info"
+      >ⓘ</button>
+      {isOpen && (
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            position:"fixed",
+            top:  tipY,
+            left: tipX,
+            transform: showBelow ? "translateX(-50%)" : "translate(-50%, -100%)",
+            background:"var(--bg2)",
+            border:"1px solid var(--border2)",
+            borderRadius:10,
+            padding:"10px 13px",
+            fontSize:14,
+            color:"var(--text2)",
+            lineHeight:1.5,
+            width:220,
+            zIndex:9999,
+            boxShadow:"0 4px 20px rgba(0,0,0,0.25)",
+          }}
+        >
+          {text}
+          {/* Arrow — points toward the button */}
+          <div style={{
+            position:"absolute",
+            ...(showBelow
+              ? { top:-5, bottom:"auto" }
+              : { bottom:-5, top:"auto" }),
+            left:"50%",
+            transform:"translateX(-50%)",
+            width:8, height:8,
+            background:"var(--bg2)",
+            border:"1px solid var(--border2)",
+            borderBottom: showBelow ? "none" : "1px solid var(--border2)",
+            borderRight:  showBelow ? "none" : "1px solid var(--border2)",
+            borderTop:    showBelow ? "1px solid var(--border2)" : "none",
+            borderLeft:   showBelow ? "1px solid var(--border2)" : "none",
+            rotate:"45deg",
+          }}/>
+        </div>
+      )}
+    </span>
+  );
+}
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 function getCycleStats(cycle, billableCalls) {
@@ -701,7 +776,7 @@ export default function App() {
   const [calls,          setCalls]          = useState([]);
   const [config,         setConfig]         = useState(defaultConfig);
   const [tab,            setTab]            = useState("home");
-  const [activeRate,     setActiveRate]     = useState(0.12);
+  const [activeRate,     setActiveRate]     = useState(defaultConfig.baseRate);
   const [toast,          setToast]          = useState("");
   const [cycleView,      setCycleView]      = useState("current");
   const [expandedDays,   setExpandedDays]   = useState(new Set());
@@ -747,15 +822,32 @@ export default function App() {
   const appStartTs = useRef(Date.now());
   const [idleSecs, setIdleSecs] = useState(0);
 
+  // Custom cycles
+  const [customCycles,    setCustomCycles]    = useState(null); // null = use PAY_CYCLES default
+  const [showEditCycles,  setShowEditCycles]  = useState(false);
+  const [editingCycles,   setEditingCycles]   = useState([]);   // working copy inside modal
+
+  // Onboarding
+  const [onboardStep, setOnboardStep] = useState(null); // null = not shown, 0-3 = step
+  const [onboardRate, setOnboardRate] = useState(0.12);
+  const [onboardGoal, setOnboardGoal] = useState(30);
+
+  // Tooltip
+  const [tooltip, setTooltip] = useState(null); // { id, text }
+
   // ── Effects ────────────────────────────────────────────────────────────────
 
   // Load persisted data on mount
   useEffect(() => {
     try {
       const d = localStorage.getItem(STORAGE_KEY);
-      if (d) setCalls(JSON.parse(d));
       const c = localStorage.getItem(STORAGE_CONFIG);
-      if (c) { const cfg = JSON.parse(c); setConfig(cfg); setTempConfig(cfg); setTempGoal(cfg.dailyMoneyGoal || 30); applyTheme(cfg.theme || "light"); }
+      const seen = localStorage.getItem("mochi_onboarded");
+      if (d) setCalls(JSON.parse(d));
+      if (c) { const cfg = JSON.parse(c); setConfig(cfg); setTempConfig(cfg); setTempGoal(cfg.dailyMoneyGoal || 30); setActiveRate(cfg.baseRate ?? 0.12); applyTheme(cfg.theme || "light"); }
+      const cy = localStorage.getItem(STORAGE_CYCLES);
+      if (cy) setCustomCycles(JSON.parse(cy));
+      if (!seen) setOnboardStep(0);
     } catch {}
   }, []);
 
@@ -803,7 +895,9 @@ export default function App() {
   const todayMoney    = todayCalls.reduce((s, c) => s + c.pay, 0);
   const todayMins     = todayCalls.reduce((s, c) => s + c.duration, 0);
   const moneyPct      = Math.min(100, Math.round((todayMoney / config.dailyMoneyGoal) * 100));
-  const minsNeeded    = Math.ceil(config.dailyMoneyGoal / 0.12); // Base rate (Normal) as reference for minute goal
+  const RATES         = getRates(config.baseRate ?? 0.12);
+  const activeCycles  = customCycles ?? PAY_CYCLES;
+  const minsNeeded    = Math.ceil(config.dailyMoneyGoal / (config.baseRate ?? 0.12)); // Base rate as reference for minute goal
   const minsLeft      = Math.max(0, minsNeeded - todayMins);
   const minsGoalReached = minsLeft === 0;
 
@@ -827,7 +921,7 @@ export default function App() {
   const maxMins   = Math.max(...weekData.map(d => d.mins), 1);
 
   const sortedDates  = [...new Set(calls.map(c => c.date))].sort((a, b) => toDate(b) - toDate(a));
-  const currentCycle = getCurrentCycle();
+  const currentCycle = getCurrentCycle(activeCycles);
   const activeDates  = new Set(Object.keys(byDate));
   const streak       = getStreak(activeDates);
   const last30       = last30Dates();
@@ -841,15 +935,10 @@ export default function App() {
 
   const heatmapCalls = (() => {
     if (heatmapScope === "all") return billableCalls;
-    const cycleToUse = typeof heatmapScope === "number" ? PAY_CYCLES[heatmapScope] : currentCycle;
+    const cycleToUse = typeof heatmapScope === "number" ? activeCycles[heatmapScope] : currentCycle;
     if (!cycleToUse) return billableCalls;
     const s = toDate(cycleToUse.start), e = toDate(cycleToUse.end);
     return billableCalls.filter(c => { const d = toDate(c.date); return d >= s && d <= e; });
-  })();
-  const heatmapCycleLabel = (() => {
-    if (heatmapScope === "all") return "All cycles";
-    const cycleToUse = typeof heatmapScope === "number" ? PAY_CYCLES[heatmapScope] : currentCycle;
-    return cycleToUse ? `${cycleToUse.start} → ${cycleToUse.end}` : "";
   })();
   const heatmap = Array(24).fill(0);
   heatmapCalls.forEach(c => { const h = parseHour(c.callStart); if (h !== null) heatmap[h] += c.duration; });
@@ -857,7 +946,7 @@ export default function App() {
 
   const sortedToday = [...todayCalls].sort((a, b) => (timeToMins(a.callStart) || 0) - (timeToMins(b.callStart) || 0));
   let avgGap = null;
-  let allGaps = [];  // individual gaps between consecutive calls
+  let allGaps = [];
   if (sortedToday.length > 1) {
     const rawGaps = [];
     for (let i = 1; i < sortedToday.length; i++) {
@@ -1069,7 +1158,7 @@ export default function App() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)",fontFamily:"var(--sans)",paddingBottom:80}}>
+    <div onClick={() => setTooltip(null)} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)",fontFamily:"var(--sans)",paddingBottom:80}}>
 
       {/* Toast */}
       {toast && (
@@ -1119,6 +1208,143 @@ export default function App() {
       </div>
 
       {/* ── Modals ─────────────────────────────────────────────────────────── */}
+
+      {/* Onboarding */}
+      {onboardStep !== null && (
+        <div style={{position:"fixed",inset:0,background:"rgba(10,10,20,0.75)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{...CC.card,padding:28,width:"100%",maxWidth:360,animation:"slideUp .25s ease"}}>
+
+            {/* Progress dots */}
+            <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:24}}>
+              {[0,1,2,3].map(i => (
+                <div key={i} style={{width:i===onboardStep?20:8,height:8,borderRadius:99,background:i<=onboardStep?"var(--cyan)":"var(--border2)",transition:"all .2s"}}/>
+              ))}
+            </div>
+
+            {/* Step 0 — Welcome */}
+            {onboardStep === 0 && (
+              <div style={{textAlign:"center"}}>
+                <div style={{display:"flex",justifyContent:"center",marginBottom:16}}><MochiLogo size={5}/></div>
+                <div style={{fontSize:24,fontWeight:800,color:"var(--text)",marginBottom:10}}>Welcome to Mochi</div>
+                <div style={{fontSize:16,color:"var(--text2)",lineHeight:1.6,marginBottom:24}}>
+                  Mochi helps freelance phone interpreters track calls, monitor earnings, and hit their daily goals — all from one place.
+                </div>
+                <div style={{display:"grid",gap:8,fontSize:15,color:"var(--text2)",textAlign:"left",marginBottom:24}}>
+                  {[["☀️","Log calls in real time or manually"],["⚡","See your daily score and rhythm"],["🔄","Track earnings across pay cycles"],["⚡ SURGE","Spot calls above your normal rate automatically"]].map(([icon,txt]) => (
+                    <div key={txt} style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                      <span style={{fontSize:17,flexShrink:0}}>{icon}</span>
+                      <span>{txt}</span>
+                    </div>
+                  ))}
+                </div>
+                <button className="btn-primary" onClick={() => setOnboardStep(1)} style={{width:"100%",background:"var(--cyan)",border:"none",borderRadius:12,color:"#fff",padding:"14px",fontWeight:700,fontSize:17,cursor:"pointer"}}>
+                  Get started →
+                </button>
+              </div>
+            )}
+
+            {/* Step 1 — Base rate */}
+            {onboardStep === 1 && (
+              <div>
+                <div style={{fontSize:22,fontWeight:800,color:"var(--text)",marginBottom:6}}>Your base rate</div>
+                <div style={{fontSize:15,color:"var(--text2)",lineHeight:1.6,marginBottom:20}}>
+                  This is how much you earn per minute at your normal rate. Surge tiers (Bronce, Silver, Gold) add $0.01 each on top of this.
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                  <span style={{fontSize:15,color:"var(--text3)",fontWeight:700}}>BASE RATE</span>
+                  <span style={{fontFamily:"var(--mono)",fontWeight:800,fontSize:22,color:"var(--cyan)"}}>${onboardRate.toFixed(2)}<span style={{fontSize:13,color:"var(--text3)",fontWeight:400}}>/min</span></span>
+                </div>
+                <input type="range" min={0.08} max={0.25} step={0.01} value={onboardRate}
+                  onChange={e => setOnboardRate(parseFloat(e.target.value))}
+                  style={{width:"100%",accentColor:"var(--cyan)",cursor:"pointer",marginBottom:6}}
+                />
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"var(--text3)",marginBottom:20,fontFamily:"var(--mono)"}}>
+                  <span>$0.08</span><span>$0.25</span>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:24}}>
+                  {getRates(onboardRate).map(r => (
+                    <div key={r.label} style={{background:"var(--bg)",border:"1px solid var(--border)",borderRadius:8,padding:"7px 4px",textAlign:"center"}}>
+                      <div style={{fontSize:16}}>{r.icon}</div>
+                      <div style={{fontSize:13,fontFamily:"var(--mono)",fontWeight:700,color:"var(--text)",marginTop:2}}>${r.value.toFixed(2)}</div>
+                      <div style={{fontSize:12,color:"var(--text3)"}}>{r.label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  <button onClick={() => setOnboardStep(0)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:12,color:"var(--text2)",padding:"12px",fontWeight:600,fontSize:16,cursor:"pointer"}}>← Back</button>
+                  <button className="btn-primary" onClick={() => setOnboardStep(2)} style={{background:"var(--cyan)",border:"none",borderRadius:12,color:"#fff",padding:"12px",fontWeight:700,fontSize:16,cursor:"pointer"}}>Next →</button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2 — Daily goal */}
+            {onboardStep === 2 && (
+              <div>
+                <div style={{fontSize:22,fontWeight:800,color:"var(--text)",marginBottom:6}}>Daily earnings goal</div>
+                <div style={{fontSize:15,color:"var(--text2)",lineHeight:1.6,marginBottom:20}}>
+                  How much do you want to earn each day? Mochi will track your progress and celebrate when you hit it.
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                  <span style={{fontSize:15,color:"var(--text3)",fontWeight:700}}>DAILY GOAL</span>
+                  <span style={{fontFamily:"var(--mono)",fontWeight:800,fontSize:22,color:"var(--amber)"}}>${onboardGoal}</span>
+                </div>
+                <input type="range" min={5} max={200} step={1} value={onboardGoal}
+                  onChange={e => setOnboardGoal(parseInt(e.target.value))}
+                  style={{width:"100%",accentColor:"var(--amber)",cursor:"pointer",marginBottom:6}}
+                />
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"var(--text3)",marginBottom:8,fontFamily:"var(--mono)"}}>
+                  <span>$5</span><span>$200</span>
+                </div>
+                <div style={{background:"var(--bg)",borderRadius:10,padding:"12px 14px",marginBottom:24,fontSize:15,color:"var(--text2)"}}>
+                  At ${onboardRate.toFixed(2)}/min you'd need about <strong style={{color:"var(--cyan)",fontFamily:"var(--mono)"}}>{Math.ceil(onboardGoal/onboardRate)} min</strong> of calls to reach this goal.
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  <button onClick={() => setOnboardStep(1)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:12,color:"var(--text2)",padding:"12px",fontWeight:600,fontSize:16,cursor:"pointer"}}>← Back</button>
+                  <button className="btn-primary" onClick={() => setOnboardStep(3)} style={{background:"var(--cyan)",border:"none",borderRadius:12,color:"#fff",padding:"12px",fontWeight:700,fontSize:16,cursor:"pointer"}}>Next →</button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3 — How to log a call */}
+            {onboardStep === 3 && (
+              <div>
+                <div style={{fontSize:22,fontWeight:800,color:"var(--text)",marginBottom:6}}>Logging calls</div>
+                <div style={{fontSize:15,color:"var(--text2)",lineHeight:1.6,marginBottom:20}}>
+                  You have three ways to log a call:
+                </div>
+                <div style={{display:"grid",gap:12,marginBottom:24}}>
+                  {[
+                    ["🔴","Live","Tap Live before the call starts. Tap Stop when it ends — Mochi calculates duration automatically."],
+                    ["✍️","Manual","Enter the duration or start/end times directly after a call."],
+                    ["📋","Paste","Paste a raw call line from your Propio dashboard and Mochi parses it for you."],
+                  ].map(([icon,title,desc]) => (
+                    <div key={title} style={{display:"flex",gap:12,alignItems:"flex-start",background:"var(--bg)",borderRadius:10,padding:"12px 14px"}}>
+                      <span style={{fontSize:22,flexShrink:0}}>{icon}</span>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:16,color:"var(--text)",marginBottom:2}}>{title}</div>
+                        <div style={{fontSize:14,color:"var(--text2)",lineHeight:1.5}}>{desc}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  <button onClick={() => setOnboardStep(2)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:12,color:"var(--text2)",padding:"12px",fontWeight:600,fontSize:16,cursor:"pointer"}}>← Back</button>
+                  <button className="btn-primary" onClick={() => {
+                    const nc = {...config, baseRate: onboardRate, dailyMoneyGoal: onboardGoal};
+                    setConfig(nc); setTempConfig(nc); setTempGoal(onboardGoal); setActiveRate(onboardRate);
+                    try { localStorage.setItem(STORAGE_CONFIG, JSON.stringify(nc)); localStorage.setItem("mochi_onboarded","1"); } catch {}
+                    setOnboardStep(null);
+                    showToast("✅ You're all set!");
+                  }} style={{background:"var(--green2)",border:"none",borderRadius:12,color:"#fff",padding:"12px",fontWeight:700,fontSize:16,cursor:"pointer"}}>
+                    Let's go 🎉
+                  </button>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
 
       {/* Goal */}
       {showGoal && (
@@ -1171,6 +1397,40 @@ export default function App() {
               })}
             </div>
           </div>
+
+          {/* Base rate slider */}
+          <div style={{marginBottom:20}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>BASE RATE</div>
+              <div style={{fontFamily:"var(--mono)",fontWeight:800,fontSize:18,color:"var(--cyan)"}}>
+                ${(config.baseRate ?? 0.12).toFixed(2)}<span style={{fontSize:13,color:"var(--text3)",fontWeight:400}}>/min</span>
+              </div>
+            </div>
+            <input type="range" min={0.08} max={0.25} step={0.01}
+              value={config.baseRate ?? 0.12}
+              onChange={e => {
+                const base = parseFloat(e.target.value);
+                const nc = {...config, baseRate: base};
+                setConfig(nc);
+                setActiveRate(base);
+                try { localStorage.setItem(STORAGE_CONFIG, JSON.stringify(nc)); } catch {}
+              }}
+              style={{width:"100%",accentColor:"var(--cyan)",cursor:"pointer"}}
+            />
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"var(--text3)",marginTop:4,fontFamily:"var(--mono)"}}>
+              <span>$0.08</span><span>$0.25</span>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginTop:10}}>
+              {getRates(config.baseRate ?? 0.12).map(r => (
+                <div key={r.label} style={{background:"var(--bg)",border:"1px solid var(--border)",borderRadius:8,padding:"7px 4px",textAlign:"center"}}>
+                  <div style={{fontSize:16}}>{r.icon}</div>
+                  <div style={{fontSize:13,fontFamily:"var(--mono)",fontWeight:700,color:"var(--text)",marginTop:2}}>${r.value.toFixed(2)}</div>
+                  <div style={{fontSize:12,color:"var(--text3)"}}>{r.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {importError && <div style={{background:"#fef2f2",border:"1px solid var(--red)44",borderRadius:8,padding:"10px 12px",color:"var(--red)",fontSize:16,marginBottom:12}}>{importError}</div>}
 
           {importStep === "idle" && (
@@ -1230,7 +1490,7 @@ export default function App() {
           <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>NEW CALL</div>
           <div style={{fontSize:20,fontWeight:700,color:"var(--text)",marginBottom:16}}>{liveStart ? "Save recorded call" : "Add manually"}</div>
           <div style={{marginBottom:14}}>
-            <label style={CC.label}>Active rate</label>
+            <label style={{...CC.label,display:"flex",alignItems:"center"}}>Active rate <InfoTip id="rate-manual" activeId={tooltip} setActiveId={setTooltip} text="Normal = your base rate. Bronce/Silver/Gold are surge tiers, each $0.01 higher. Select whichever matches what Propio shows for this call." /></label>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
               {RATES.map(r => { const active = activeRate === r.value; return (
                 <button key={r.value} className="rate-btn" onClick={() => { setActiveRate(r.value); setManualForm(p => ({...p, pay: String(parseFloat((parseInt(p.duration||0) * r.value).toFixed(2)))})); }}
@@ -1335,6 +1595,74 @@ export default function App() {
         </Modal>
       )}
 
+      {/* Edit Cycles */}
+      {showEditCycles && (
+        <div onClick={() => setShowEditCycles(false)} style={{position:"fixed",inset:0,background:"rgba(10,10,20,0.75)",zIndex:400,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"20px 16px",overflowY:"auto"}}>
+          <div onClick={e => e.stopPropagation()} style={{...CC.card,padding:24,width:"100%",maxWidth:420,animation:"slideUp .2s ease"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+              <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>PAY CYCLES</div>
+              <button onClick={() => setShowEditCycles(false)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:20,lineHeight:1}}>✕</button>
+            </div>
+            <div style={{fontSize:20,fontWeight:700,color:"var(--text)",marginBottom:4}}>Edit cycles</div>
+            <div style={{fontSize:14,color:"var(--text3)",marginBottom:16}}>{editingCycles.length} cycles · format MM/DD/YYYY</div>
+
+            {/* Cycle list */}
+            <div style={{maxHeight:400,overflowY:"auto",marginBottom:16,display:"flex",flexDirection:"column",gap:10}}>
+              {editingCycles.map((c, i) => (
+                <div key={i} style={{background:"var(--bg)",borderRadius:10,padding:"12px 14px",border:"1px solid var(--border)"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                    <span style={{fontSize:14,fontWeight:700,color:"var(--text3)",letterSpacing:.5}}>CYCLE {i+1}</span>
+                    <button onClick={() => setEditingCycles(prev => prev.filter((_, j) => j !== i))}
+                      style={{background:"none",border:"none",color:"var(--red)",cursor:"pointer",fontSize:16,padding:"2px 6px"}}>🗑</button>
+                  </div>
+                  <div style={{display:"grid",gap:8}}>
+                    {[["Start","start"],["End","end"],["Payday","payDate"]].map(([lbl, field]) => (
+                      <div key={field}>
+                        <label style={{...CC.label,marginBottom:3}}>{lbl}</label>
+                        <input
+                          type="text"
+                          placeholder="MM/DD/YYYY"
+                          value={c[field]}
+                          onChange={e => setEditingCycles(prev => prev.map((cy, j) => j === i ? {...cy, [field]: e.target.value} : cy))}
+                          style={{...CC.input,fontSize:16,fontFamily:"var(--mono)"}}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Add cycle */}
+            <button onClick={() => setEditingCycles(prev => [...prev, { start:"", end:"", payDate:"" }])}
+              style={{width:"100%",background:"var(--bg)",border:"2px dashed var(--border2)",borderRadius:10,color:"var(--text2)",padding:"11px",fontWeight:600,cursor:"pointer",fontSize:16,marginBottom:16}}>
+              + Add cycle
+            </button>
+
+            {/* Actions */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              <button onClick={() => {
+                const reset = PAY_CYCLES.map(c => ({...c}));
+                setEditingCycles(reset);
+              }} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text3)",padding:"11px",fontWeight:600,cursor:"pointer",fontSize:15}}>
+                ↺ Reset default
+              </button>
+              <button className="btn-primary" onClick={() => {
+                // Validate: all fields filled and parseable
+                const valid = editingCycles.every(c => c.start && c.end && c.payDate && toDate(c.start) && toDate(c.end) && toDate(c.payDate));
+                if (!valid) { showToast("⚠️ Check all dates (MM/DD/YYYY)"); return; }
+                setCustomCycles(editingCycles);
+                try { localStorage.setItem(STORAGE_CYCLES, JSON.stringify(editingCycles)); } catch {}
+                setShowEditCycles(false);
+                showToast("✅ Cycles saved");
+              }} style={{background:"var(--green2)",border:"none",borderRadius:10,color:"#fff",padding:"11px",fontWeight:700,cursor:"pointer",fontSize:15}}>
+                💾 Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Page content ─────────────────────────────────────────────────── */}
       <div style={{padding:"16px 20px 0"}}>
 
@@ -1370,7 +1698,7 @@ export default function App() {
               {/* Idle cost */}
               <div style={{marginTop:14,paddingTop:14,borderTop:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>IDLE</div>
-                <div style={{fontFamily:"var(--mono)",fontWeight:900,fontSize:22,color:"var(--red)"}}>-${(idleSecs / 60 * 0.12).toFixed(2)}</div>
+                <div style={{fontFamily:"var(--mono)",fontWeight:900,fontSize:22,color:"var(--red)"}}>-${(idleSecs / 60 * (config.baseRate ?? 0.12)).toFixed(2)}</div>
               </div>
             </div>
 
@@ -1395,10 +1723,16 @@ export default function App() {
                 <div style={{fontSize:16,fontFamily:"var(--mono)",color:"var(--text2)"}}>{todayCalls.length}</div>
               </div>
               {todayCalls.length === 0 && (
-                <div style={{textAlign:"center",padding:"24px 0",color:"var(--text3)"}}>
-                  <div style={{fontSize:32,marginBottom:8}}>📞</div>
-                  <div style={{fontSize:17}}>No calls today</div>
-                  <div style={{fontSize:15,marginTop:4}}>Use the buttons above to log calls</div>
+                <div style={{textAlign:"center",padding:"28px 16px",color:"var(--text3)"}}>
+                  <div style={{fontSize:36,marginBottom:12}}>📞</div>
+                  <div style={{fontSize:17,fontWeight:700,color:"var(--text2)",marginBottom:8}}>No calls yet today</div>
+                  <div style={{fontSize:15,lineHeight:1.6,marginBottom:16}}>
+                    Tap <strong style={{color:"var(--red)"}}>🔴 Live</strong> before your next call,<br/>
+                    or use <strong style={{color:"var(--cyan)"}}>✍️ Manual</strong> to enter one you already took.
+                  </div>
+                  <div style={{background:"var(--bg)",border:"1px solid var(--border)",borderRadius:10,padding:"10px 14px",display:"inline-block",fontSize:14,color:"var(--text3)"}}>
+                    💡 You can also paste a line from Propio using <strong style={{color:"var(--text2)"}}>📋 Paste</strong>
+                  </div>
                 </div>
               )}
               {todayCalls.map((c, i) => (
@@ -1409,7 +1743,12 @@ export default function App() {
                       <div style={{fontWeight:600,fontSize:17}}>#{c.customerId}</div>
                       <div style={{fontSize:15,color:"var(--text2)",fontFamily:"var(--mono)"}}>{c.callStart} · {c.duration}m</div>
                     </div>
-                    {(c.duration > 0 && (c.pay / c.duration) > 0.12) && <span style={{fontSize:12,background:"#fef3c7",color:"var(--amber)",padding:"2px 7px",borderRadius:6,border:"1px solid var(--amber)44",fontWeight:700}}>⚡ SURGE</span>}
+                    {(c.duration > 0 && (c.pay / c.duration) > (config.baseRate ?? 0.12)) && (
+                      <span style={{display:"inline-flex",alignItems:"center",gap:3}}>
+                        <span style={{fontSize:12,background:"#fef3c7",color:"var(--amber)",padding:"2px 7px",borderRadius:6,border:"1px solid var(--amber)44",fontWeight:700}}>⚡ SURGE</span>
+                        <InfoTip id={`surge-${c.id}`} activeId={tooltip} setActiveId={setTooltip} text={`This call's rate ($${(c.pay/c.duration).toFixed(3)}/min) is above your base rate ($${(config.baseRate??0.12).toFixed(2)}/min) — it counted as a surge hour.`}/>
+                      </span>
+                    )}
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
                     <div style={{fontWeight:800,fontSize:17,fontFamily:"var(--mono)",color:"var(--green)"}}>${c.pay.toFixed(2)}</div>
@@ -1427,7 +1766,11 @@ export default function App() {
           <div>
             {/* Score */}
             <div style={{...CC.cardGlow(scoreColor),padding:24,marginBottom:12,textAlign:"center"}} className="card">
-              <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1.5,marginBottom:8}}>DAY SCORE</div>
+              <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1.5,marginBottom:8,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+                DAY SCORE
+                <InfoTip id="score" activeId={tooltip} setActiveId={setTooltip}
+                  text="Score out of 100: Goal (40pts) — how close you are to your daily earnings goal. Rhythm (30pts) — how tight your gap between calls is. Streak (20pts) — consecutive active days. Active (10pts) — whether you've taken calls today." />
+              </div>
               <div style={{fontSize:72,fontWeight:900,fontFamily:"var(--mono)",color:scoreColor,lineHeight:1}}>{score}</div>
               <div style={{fontSize:17,color:scoreColor,fontWeight:600,marginTop:6,letterSpacing:.5}}>{scoreLabel}</div>
               <div style={{marginTop:14,background:"var(--bg)",borderRadius:99,height:6,overflow:"hidden"}}>
@@ -1461,7 +1804,10 @@ export default function App() {
             {/* Cycle projection */}
             {currentCycle && (
               <div style={{...CC.cardGlow("var(--amber)"),padding:20,marginBottom:12}} className="card">
-                <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>CYCLE PROJECTION</div>
+                <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4,display:"flex",alignItems:"center",gap:4}}>
+                  CYCLE PROJECTION
+                  <InfoTip id="projection" activeId={tooltip} setActiveId={setTooltip} text="Estimated total earnings by end of this pay cycle, based on your average daily pace so far." />
+                </div>
                 <div style={{fontSize:36,fontWeight:900,fontFamily:"var(--mono)",color:"var(--amber)"}}>${projection !== null ? projection.toFixed(2) : "--"}</div>
                 <div style={{fontSize:15,color:"var(--text2)",marginTop:2}}>At this rate by end of cycle</div>
               </div>
@@ -1651,7 +1997,7 @@ export default function App() {
               );
             })()}
 
-            <HeatmapCard heatmap={heatmap} maxHeat={maxHeat} scope={heatmapScope} setScope={setHeatmapScope} cycleLabel={heatmapCycleLabel}/>
+            <HeatmapCard heatmap={heatmap} maxHeat={maxHeat} scope={heatmapScope} setScope={setHeatmapScope} cycles={activeCycles}/>
 
             {/* Streak — cycle focused */}
             {(() => {
@@ -1683,7 +2029,7 @@ export default function App() {
               }
 
               // Goal hit: days where total pay >= dailyGoal
-              const dailyGoal   = config.goal || 30;
+              const dailyGoal   = config.dailyMoneyGoal || 30;
               const goalDays    = cycleActive.filter(d =>
                 (byDate[d] || []).reduce((s, c) => s + c.pay, 0) >= dailyGoal
               ).length;
@@ -1806,9 +2152,15 @@ export default function App() {
         {/* CYCLE */}
         {tab === "cycle" && (
           <div>
-            <div style={{display:"flex",gap:8,marginBottom:16}}>
-              <Pill active={cycleView==="current"} onClick={() => setCycleView("current")}>Current cycle</Pill>
-              <Pill active={cycleView==="all"}     onClick={() => setCycleView("all")}>All</Pill>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <div style={{display:"flex",gap:8}}>
+                <Pill active={cycleView==="current"} onClick={() => setCycleView("current")}>Current cycle</Pill>
+                <Pill active={cycleView==="all"}     onClick={() => setCycleView("all")}>All</Pill>
+              </div>
+              <button onClick={() => { setEditingCycles(activeCycles.map(c => ({...c}))); setShowEditCycles(true); }}
+                style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:8,color:"var(--text2)",padding:"6px 12px",cursor:"pointer",fontSize:15,fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
+                ✏️ Edit
+              </button>
             </div>
             {cycleView === "current" && (!currentCycle
               ? <div style={{color:"var(--text3)",fontSize:17,textAlign:"center",padding:"32px 0"}}>No active cycle.</div>
@@ -1850,7 +2202,7 @@ export default function App() {
                   );
                 })()
             )}
-            {cycleView === "all" && PAY_CYCLES.map((cycle, i) => {
+            {cycleView === "all" && activeCycles.map((cycle, i) => {
               const stats     = getCycleStats(cycle, billableCalls);
               const isCurrent = currentCycle && cycle.start === currentCycle.start;
               const isPast    = toDate(cycle.end) < new Date();
@@ -1888,7 +2240,7 @@ export default function App() {
               const bil        = dayCalls.filter(c => c.billable === "Yes");
               const mins       = bil.reduce((s, c) => s + c.duration, 0);
               const money      = bil.reduce((s, c) => s + c.pay, 0);
-              const surgeCount = bil.filter(c => c.duration > 0 && (c.pay / c.duration) > 0.12).length;
+              const surgeCount = bil.filter(c => c.duration > 0 && (c.pay / c.duration) > (config.baseRate ?? 0.12)).length;
               const isOpen     = expandedDays.has(date);
               const toggle     = () => setExpandedDays(prev => { const next = new Set(prev); isOpen ? next.delete(date) : next.add(date); return next; });
               return (
@@ -1912,7 +2264,7 @@ export default function App() {
                           <div style={{display:"flex",alignItems:"center",gap:8}}>
                             <span style={{fontWeight:600,fontFamily:"var(--mono)",color:"var(--text2)"}}>{c.customerId}</span>
                             <span style={{color:"var(--text3)",fontFamily:"var(--mono)"}}>{c.callStart}</span>
-                            {(c.duration > 0 && (c.pay / c.duration) > 0.12) && <span style={{fontSize:12,background:"#fef3c7",color:"var(--amber)",padding:"1px 6px",borderRadius:4,border:"1px solid var(--amber)44",fontWeight:700}}>⚡ SURGE</span>}
+                            {(c.duration > 0 && (c.pay / c.duration) > (config.baseRate ?? 0.12)) && <span style={{fontSize:12,background:"#fef3c7",color:"var(--amber)",padding:"1px 6px",borderRadius:4,border:"1px solid var(--amber)44",fontWeight:700}}>⚡ SURGE</span>}
                             {c.billable !== "Yes" && <span style={{fontSize:12,background:"var(--red)22",color:"var(--red)",padding:"1px 6px",borderRadius:4}}>NB</span>}
                           </div>
                           <div style={{display:"flex",gap:10,alignItems:"center"}}>
