@@ -1,14 +1,61 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="theme-color" content="#0099aa" />
+
+    <!-- ── Primary SEO ────────────────────────────────────────────────── -->
+    <title>Mochi Call Tracker — Propio Interpreter Earnings & Pay Cycle Tool</title>
+    <meta name="description" content="Free call tracker for Propio phone interpreters. Log calls, track earnings per pay cycle, monitor surge rates, and hit your daily goal. Works on mobile." />
+    <meta name="keywords" content="Propio call tracker, interpreter call tracker, Propio earnings tracker, phone interpreter tool, per-minute pay tracker, call log interpreter, Propio pay cycle, freelance interpreter tracker" />
+    <meta name="author" content="Renata de la Rrañaga" />
+    <link rel="canonical" href="https://mochi-calltracker.is-a.dev/" />
+
+    <!-- ── Open Graph (WhatsApp, Facebook, Telegram previews) ─────────── -->
+    <meta property="og:type"        content="website" />
+    <meta property="og:url"         content="https://mochi-calltracker.is-a.dev/" />
+    <meta property="og:title"       content="Mochi Call Tracker — For Propio Interpreters" />
+    <meta property="og:description" content="Log calls, track per-minute earnings, monitor surge rates and pay cycles. Built for freelance Propio phone interpreters." />
+    <meta property="og:image"       content="https://mochi-calltracker.is-a.dev/mochi-192.png" />
+    <meta property="og:locale"      content="en_US" />
+
+    <!-- ── Twitter / X card ──────────────────────────────────────────── -->
+    <meta name="twitter:card"        content="summary" />
+    <meta name="twitter:title"       content="Mochi Call Tracker — For Propio Interpreters" />
+    <meta name="twitter:description" content="Log calls, track per-minute earnings, monitor surge rates and pay cycles. Built for freelance Propio phone interpreters." />
+    <meta name="twitter:image"       content="https://mochi-calltracker.is-a.dev/mochi-192.png" />
+
+    <!-- ── Structured data (Google rich results) ─────────────────────── -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Mochi Call Tracker",
+      "url": "https://mochi-calltracker.is-a.dev/",
+      "description": "Call tracker for Propio phone interpreters. Log calls, track per-minute earnings, monitor surge rates and pay cycles.",
+      "applicationCategory": "ProductivityApplication",
+      "operatingSystem": "Any",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
+
+    <!-- ── PWA / Icons ────────────────────────────────────────────────── -->
+    <link rel="icon"             href="%PUBLIC_URL%/favicon.ico" />
+    <link rel="icon"             type="image/png" sizes="32x32" href="%PUBLIC_URL%/favicon.png" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/mochi-192.png" />
-    <meta name="theme-color" content="#1e1330" />
-    <title>Mochi</title>
+    <link rel="manifest"         href="%PUBLIC_URL%/manifest.json" />
+
+    <!-- ── Font preconnect (performance) ─────────────────────────────── -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   </head>
   <body>
+    <noscript>Mochi Call Tracker requires JavaScript. Please enable it in your browser settings.</noscript>
     <div id="root"></div>
   </body>
 </html>
