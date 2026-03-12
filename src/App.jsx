@@ -86,9 +86,11 @@ const TABS = [
 
 const sfx = (() => {
   let ctx = null;
+  let muted = false;
   const getCtx = () => { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); return ctx; };
 
   function play(notes, type = "sine", vol = 0.18) {
+    if (muted) return;
     try {
       const c = getCtx();
       notes.forEach(([freq, start, dur, endFreq]) => {
@@ -110,8 +112,27 @@ const sfx = (() => {
     // ✅ Llamada agregada — chime ascendente alegre (C5 E5 G5)
     callAdded: () => play([[523,0,.12],[659,.1,.12],[784,.2,.2]], "sine", 0.16),
 
-    // 🗓 Navegación entre tabs — pop suave single note
-    tabSwitch: () => play([[440,0,.07,520]], "triangle", 0.10),
+    // ✅ Importar llamadas — confirmación suave
+    imported: () => play([[523,0,.1],[659,.12,.1],[784,.24,.25]], "triangle", 0.13),
+
+    // 🎉 Meta del día alcanzada — level up armonioso
+    goalReached: () => play([[392,0,.07],[494,.08,.07],[587,.16,.07],[740,.24,.07],[988,.32,.07],[740,.40,.05],[988,.46,.04],[1175,.51,.35]], "sine", 0.14),
+
+    // ✏️ Guardar edición — dos notas suaves de confirmación
+    saved: () => play([[523,0,.08],[659,.1,.15]], "triangle", 0.12),
+
+    // 🗑 Eliminar — nota descendente corta
+    deleted: () => play([[330,0,.18,220]], "sine", 0.12),
+
+    // ⚠️ Error — dos notas disonantes breves
+    error: () => play([[311,0,.1],[277,.08,.15]], "sawtooth", 0.10),
+
+    // 🗓 Navegación entre tabs — pop suave
+    tabSwitch: () => play([[440,0,.07,520]], "triangle", 0.06),
+
+    // 🔇 Mute toggle
+    toggle: () => { muted = !muted; return muted; },
+    isMuted: () => muted,
   };
 })();
 
@@ -668,6 +689,12 @@ function MochiLogo({ size = 4 }) {
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 
+function getCycleStats(cycle, billableCalls) {
+  const s = toDate(cycle.start), e = toDate(cycle.end);
+  const cc = billableCalls.filter(c => { const d = toDate(c.date); return d >= s && d <= e; });
+  return { mins: cc.reduce((s, c) => s + c.duration, 0), money: cc.reduce((s, c) => s + c.pay, 0), count: cc.length };
+}
+
 export default function App() {
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -683,10 +710,12 @@ export default function App() {
 
   // Modals
   const [showGoal,       setShowGoal]       = useState(false);
+  const [isMuted,        setIsMuted]        = useState(false);
   const [showConfig,     setShowConfig]     = useState(false);
   const [showManual,     setShowManual]     = useState(false);
   const [showPaste,      setShowPaste]      = useState(false);
   const [tempGoal,       setTempGoal]       = useState(defaultConfig.dailyMoneyGoal);
+  const [tempConfig,     setTempConfig]     = useState(defaultConfig);
 
   // Live call
   const [liveActive,     setLiveActive]     = useState(false);
@@ -778,6 +807,14 @@ export default function App() {
   const minsLeft      = Math.max(0, minsNeeded - todayMins);
   const minsGoalReached = minsLeft === 0;
 
+  // 🎉 Sonido de meta alcanzada — solo dispara una vez al cruzar el 100%
+  const goalReachedRef = useRef(false);
+  useEffect(() => {
+    const reached = todayMoney >= config.dailyMoneyGoal && config.dailyMoneyGoal > 0;
+    if (reached && !goalReachedRef.current) { sfx.goalReached(); }
+    goalReachedRef.current = reached;
+  }, [todayMoney, config.dailyMoneyGoal]);
+
   const weekDates = last7Dates();
   const weekData  = weekDates.map(d => ({
     date:  d,
@@ -833,7 +870,7 @@ export default function App() {
 
   let projection = null;
   if (currentCycle) {
-    const stats = getCycleStats(currentCycle);
+    const stats = getCycleStats(currentCycle, billableCalls);
     const s = toDate(currentCycle.start), e = toDate(currentCycle.end);
     const totalDays  = Math.round((e - s) / 86400000) + 1;
     const daysPassed = totalDays - Math.max(daysUntil(currentCycle.end), 0);
@@ -849,13 +886,6 @@ export default function App() {
   const scoreLabel  = score >= 75 ? "Excellent" : score >= 45 ? "Good" : score >= 20 ? "Slow" : "Inactive";
 
   // ── Functions ──────────────────────────────────────────────────────────────
-
-  function getCycleStats(cycle) {
-    const s = toDate(cycle.start), e = toDate(cycle.end);
-    const cc = billableCalls.filter(c => { const d = toDate(c.date); return d >= s && d <= e; });
-    return { mins: cc.reduce((s, c) => s + c.duration, 0), money: cc.reduce((s, c) => s + c.pay, 0), count: cc.length };
-  }
-
   const toastRef = useRef(null);
   function showToast(msg) {
     clearTimeout(toastRef.current);
@@ -863,7 +893,7 @@ export default function App() {
     toastRef.current = setTimeout(() => setToast(""), 3000);
   }
 
-  function handleDelete(id) { setCalls(prev => prev.filter(c => c.id !== id)); }
+  function handleDelete(id) { sfx.deleted(); setCalls(prev => prev.filter(c => c.id !== id)); }
 
   // Live call
   function startLiveCall()  { setLiveSeconds(0); setLiveStart(getNowTimeStr()); setLiveActive(true); }
@@ -905,7 +935,7 @@ export default function App() {
 
   function submitManual() {
     const dur = parseInt(manualForm.duration) || 0;
-    if (!dur) { showToast("⚠️ Invalid duration"); return; }
+    if (!dur) { sfx.error(); showToast("⚠️ Invalid duration"); return; }
     const newCall = {
       customerId: manualForm.customerId || "Manual",
       date: todayStr, callStart: manualForm.startTime || getNowTimeStr(),
@@ -963,6 +993,7 @@ export default function App() {
       };
     }));
     setEditingId(null);
+    sfx.saved();
     showToast("✏️ Updated");
   }
 
@@ -975,7 +1006,7 @@ export default function App() {
   }
   function handleAdd() {
     if (!parsed) return;
-    if (parsed.billable !== "Yes") { showToast("⚠️ No billable."); setParsed(null); setRawText(""); return; }
+    if (parsed.billable !== "Yes") { sfx.error(); showToast("⚠️ No billable."); setParsed(null); setRawText(""); return; }
     setCalls(prev => [...prev, parsed]); setParsed(null); setRawText(""); sfx.callAdded(); showToast("✅ Call added");
   }
 
@@ -1007,7 +1038,7 @@ export default function App() {
   function confirmImport() {
     const existing = new Set(calls.map(c => `${c.customerId}-${c.date}-${c.callStart}`));
     const newCalls = importPreview.filter(c => !existing.has(`${c.customerId}-${c.date}-${c.callStart}`));
-    setCalls(prev => [...prev, ...newCalls]); setImportStep("done"); sfx.callAdded(); showToast(`✅ ${newCalls.length} imported`);
+    setCalls(prev => [...prev, ...newCalls]); setImportStep("done"); sfx.imported(); showToast(`✅ ${newCalls.length} imported`);
   }
 
   function resetImport() {
@@ -1020,7 +1051,7 @@ export default function App() {
   }
 
   function exportCSV() {
-    const rows = getExportRows(); if (!rows.length) { showToast("⚠️ No calls"); return; }
+    const rows = getExportRows(); if (!rows.length) { sfx.error(); showToast("⚠️ No calls"); return; }
     const headers = Object.keys(rows[0]);
     const csv = [headers.join(","), ...rows.map(r => headers.map(h => '"' + String(r[h]).replace(/"/g, '""') + '"').join(","))].join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type:"text/csv;charset=utf-8;" }));
@@ -1030,8 +1061,8 @@ export default function App() {
   }
 
   function exportXLSX() {
-    const XLSX = window.XLSX; if (!XLSX) { showToast("⚠️ Library unavailable"); return; }
-    const rows = getExportRows(); if (!rows.length) { showToast("⚠️ No calls"); return; }
+    const XLSX = window.XLSX; if (!XLSX) { sfx.error(); showToast("⚠️ Library unavailable"); return; }
+    const rows = getExportRows(); if (!rows.length) { sfx.error(); showToast("⚠️ No calls"); return; }
     const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Calls");
     XLSX.writeFile(wb, `call-tracker-${today()}.xlsx`); showToast("✅ Excel exported");
   }
@@ -1080,7 +1111,10 @@ export default function App() {
           <button onClick={() => { setTempGoal(config.dailyMoneyGoal); setShowGoal(true); }} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:8,color:"var(--text2)",padding:"7px 12px",cursor:"pointer",fontSize:16,fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
             <span style={{color:"var(--amber)"}}>🎯</span> Goal
           </button>
-          <button onClick={() => setShowConfig(true)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:8,color:"var(--text2)",padding:"7px 12px",cursor:"pointer",fontSize:18}}>⚙</button>
+          <button onClick={() => { const m = sfx.toggle(); setIsMuted(m); }} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:8,color:isMuted?"var(--red)":"var(--text2)",padding:"7px 10px",cursor:"pointer",fontSize:17}} title={isMuted?"Unmute":"Mute"}>
+            {isMuted ? "🔇" : "🔊"}
+          </button>
+          <button onClick={() => { setShowConfig(true); }} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:8,color:"var(--text2)",padding:"7px 12px",cursor:"pointer",fontSize:18}}>⚙</button>
         </div>
       </div>
 
@@ -1088,7 +1122,7 @@ export default function App() {
 
       {/* Goal */}
       {showGoal && (
-        <Modal onClose={() => setShowGoal(false)}>
+        <Modal onClose={() => { setShowGoal(false); }}>
           <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>DAILY GOAL</div>
           <div style={{fontSize:22,fontWeight:700,color:"var(--text)",marginBottom:20}}>How much do you want to earn today?</div>
           <label style={CC.label}>Amount in dollars</label>
@@ -1100,7 +1134,7 @@ export default function App() {
           <div style={{display:"flex",gap:8}}>
             <button className="btn-primary" onClick={() => { const val=parseFloat(tempGoal)||30; const nc={...config,dailyMoneyGoal:val}; setConfig(nc); setTempConfig(nc); try{localStorage.setItem(STORAGE_CONFIG,JSON.stringify(nc));}catch{} setShowGoal(false); showToast("🎯 Goal: $"+val.toFixed(2)); }}
               style={{flex:1,background:"var(--amber)",border:"none",borderRadius:10,color:"#000",padding:"12px",fontWeight:800,cursor:"pointer",fontSize:17}}>Save</button>
-            <button onClick={() => setShowGoal(false)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"12px 16px",cursor:"pointer",fontSize:17}}>✕</button>
+            <button onClick={() => { setShowGoal(false); }} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"12px 16px",cursor:"pointer",fontSize:17}}>✕</button>
           </div>
         </Modal>
       )}
@@ -1275,7 +1309,7 @@ export default function App() {
 
       {/* Edit */}
       {editingId && (
-        <Modal onClose={() => setEditingId(null)}>
+        <Modal onClose={() => { setEditingId(null); }}>
           <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>EDIT CALL</div>
           <div style={{fontSize:20,fontWeight:700,color:"var(--text)",marginBottom:16}}>Edit call</div>
           <div style={{marginBottom:12}}>
@@ -1296,7 +1330,7 @@ export default function App() {
           </div>
           <div style={{display:"flex",gap:8}}>
             <button className="btn-primary" onClick={() => saveEdit(editingId)} style={{flex:1,background:"var(--cyan)",border:"none",borderRadius:10,color:"#000",padding:"12px",fontWeight:700,cursor:"pointer",fontSize:17}}>💾 Save</button>
-            <button onClick={() => setEditingId(null)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"12px 16px",cursor:"pointer"}}>✕</button>
+            <button onClick={() => { setEditingId(null); }} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"12px 16px",cursor:"pointer"}}>✕</button>
           </div>
         </Modal>
       )}
@@ -1344,8 +1378,8 @@ export default function App() {
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
               {[
                 { label: liveActive ? "⏹️ Stop" : "🔴 Live", active: liveActive, color:"var(--green)",  action: () => liveActive ? stopLiveCall() : startLiveCall() },
-                { label: "✍️ Manual",                             active: false,       color:"var(--cyan)",   action: () => setShowManual(true) },
-                { label: "📋 Paste",                              active: false,       color:"var(--purple)", action: () => setShowPaste(true) },
+                { label: "✍️ Manual",                             active: false,       color:"var(--cyan)",   action: () => { setShowManual(true); } },
+                { label: "📋 Paste",                              active: false,       color:"var(--purple)", action: () => { setShowPaste(true); } },
               ].map(btn => (
                 <button key={btn.label} className="action-btn" onClick={btn.action} style={{padding:"16px 8px",borderRadius:14,border:`1px solid ${btn.active?btn.color:"var(--border)"}`,cursor:"pointer",background:btn.active?`${btn.color}11`:"var(--bg2)",color:btn.active?btn.color:"var(--text)",fontWeight:700,fontSize:16,display:"flex",flexDirection:"column",alignItems:"center",gap:6,boxShadow:btn.active?`0 0 14px ${btn.color}22`:"none",transition:"all .15s"}}>
                   <span style={{fontSize:22}}>{btn.label.split(" ")[0]}</span>
@@ -1375,7 +1409,7 @@ export default function App() {
                       <div style={{fontWeight:600,fontSize:17}}>#{c.customerId}</div>
                       <div style={{fontSize:15,color:"var(--text2)",fontFamily:"var(--mono)"}}>{c.callStart} · {c.duration}m</div>
                     </div>
-                    {c.surge && <span style={{fontSize:12,background:"#fef3c7",color:"var(--amber)",padding:"2px 7px",borderRadius:6,border:"1px solid var(--amber)44",fontWeight:700}}>SURGE</span>}
+                    {(c.duration > 0 && (c.pay / c.duration) > 0.12) && <span style={{fontSize:12,background:"#fef3c7",color:"var(--amber)",padding:"2px 7px",borderRadius:6,border:"1px solid var(--amber)44",fontWeight:700}}>⚡ SURGE</span>}
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
                     <div style={{fontWeight:800,fontSize:17,fontFamily:"var(--mono)",color:"var(--green)"}}>${c.pay.toFixed(2)}</div>
@@ -1779,7 +1813,7 @@ export default function App() {
             {cycleView === "current" && (!currentCycle
               ? <div style={{color:"var(--text3)",fontSize:17,textAlign:"center",padding:"32px 0"}}>No active cycle.</div>
               : (() => {
-                  const stats    = getCycleStats(currentCycle);
+                  const stats    = getCycleStats(currentCycle, billableCalls);
                   const daysLeft = daysUntil(currentCycle.end), dtp = daysUntil(currentCycle.payDate);
                   const s = toDate(currentCycle.start), e = toDate(currentCycle.end);
                   const total  = Math.round((e - s) / 86400000) + 1;
@@ -1817,7 +1851,7 @@ export default function App() {
                 })()
             )}
             {cycleView === "all" && PAY_CYCLES.map((cycle, i) => {
-              const stats     = getCycleStats(cycle);
+              const stats     = getCycleStats(cycle, billableCalls);
               const isCurrent = currentCycle && cycle.start === currentCycle.start;
               const isPast    = toDate(cycle.end) < new Date();
               const dtp       = daysUntil(cycle.payDate);
@@ -1854,7 +1888,7 @@ export default function App() {
               const bil        = dayCalls.filter(c => c.billable === "Yes");
               const mins       = bil.reduce((s, c) => s + c.duration, 0);
               const money      = bil.reduce((s, c) => s + c.pay, 0);
-              const surgeCount = bil.filter(c => c.surge).length;
+              const surgeCount = bil.filter(c => c.duration > 0 && (c.pay / c.duration) > 0.12).length;
               const isOpen     = expandedDays.has(date);
               const toggle     = () => setExpandedDays(prev => { const next = new Set(prev); isOpen ? next.delete(date) : next.add(date); return next; });
               return (
@@ -1878,7 +1912,7 @@ export default function App() {
                           <div style={{display:"flex",alignItems:"center",gap:8}}>
                             <span style={{fontWeight:600,fontFamily:"var(--mono)",color:"var(--text2)"}}>{c.customerId}</span>
                             <span style={{color:"var(--text3)",fontFamily:"var(--mono)"}}>{c.callStart}</span>
-                            {c.surge && <span style={{fontSize:12,background:"#fef3c7",color:"var(--amber)",padding:"1px 6px",borderRadius:4}}>SURGE</span>}
+                            {(c.duration > 0 && (c.pay / c.duration) > 0.12) && <span style={{fontSize:12,background:"#fef3c7",color:"var(--amber)",padding:"1px 6px",borderRadius:4,border:"1px solid var(--amber)44",fontWeight:700}}>⚡ SURGE</span>}
                             {c.billable !== "Yes" && <span style={{fontSize:12,background:"var(--red)22",color:"var(--red)",padding:"1px 6px",borderRadius:4}}>NB</span>}
                           </div>
                           <div style={{display:"flex",gap:10,alignItems:"center"}}>
