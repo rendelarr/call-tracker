@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from "react";
 const STORAGE_KEY    = "call_tracker_data";
 const STORAGE_CONFIG = "call_tracker_config";
 const STORAGE_CYCLES = "mochi_cycles";
-const defaultConfig  = { dailyMoneyGoal: 30, theme: "light", baseRate: 0.12 };
+const defaultConfig  = { dailyMoneyGoal: 30, theme: "arctic", baseRate: 0.12 };
 
 function getRates(base = 0.12) {
   const r = v => Math.round(v * 100) / 100;
@@ -18,17 +18,17 @@ function getRates(base = 0.12) {
 }
 
 const THEMES = {
-  light: {
-    name: "Light", icon: "☀️",
-    "--bg":"#eef0f3","--bg2":"#f8f9fb","--bg3":"#e4e7ec",
-    "--border":"#d0d5de","--border2":"#b8bfcc",
-    "--cyan":"#0099aa","--cyan2":"#007a8a",
-    "--green":"#16a34a","--green2":"#15803d",
-    "--amber":"#b45309","--red":"#dc2626",
-    "--text":"#1a2030","--text2":"#4a5568","--text3":"#8a95a8",
+  arctic: {
+    name: "Arctic", icon: "🧊",
+    "--bg":"#f0f4f8","--bg2":"#e8eef4","--bg3":"#dde5ed",
+    "--border":"#c2cfd9","--border2":"#a8bac8",
+    "--cyan":"#2d7fa8","--cyan2":"#1f5f80",
+    "--green":"#2a7d5c","--green2":"#1e5c42",
+    "--amber":"#5a7a8a","--red":"#a03a4a",
+    "--text":"#0e1f2d","--text2":"#3a5468","--text3":"#8aaabb",
   },
   eva: {
-    name: "Eva", icon: "✦",
+    name: "Eva", icon: "🫧",
     "--bg":"#1e1330","--bg2":"#2e1f4a","--bg3":"#160d24",
     "--border":"#3a2660","--border2":"#4a3370",
     "--cyan":"#9b72cf","--cyan2":"#7a50aa",
@@ -37,14 +37,14 @@ const THEMES = {
     "--blue":"#818cf8","--purple":"#c084fc",
     "--text":"#e8d5ff","--text2":"#c4a882","--text3":"#7a6690",
   },
-  dark: {
-    name: "Dark", icon: "◈",
-    "--bg":"#0f1117","--bg2":"#161b27","--bg3":"#0a0d13",
-    "--border":"#1c2030","--border2":"#252d40",
-    "--cyan":"#22d3ee","--cyan2":"#0ea5c9",
-    "--green":"#4ade80","--green2":"#22c55e",
-    "--amber":"#f59e0b","--red":"#f87171",
-    "--text":"#e2e8f4","--text2":"#8892aa","--text3":"#3a4260",
+  void: {
+    name: "Void", icon: "⚡",
+    "--bg":"#050505","--bg2":"#0c0c0c","--bg3":"#000000",
+    "--border":"#1a1508","--border2":"#2e2510",
+    "--cyan":"#c8941a","--cyan2":"#a07010",
+    "--green":"#d4a820","--green2":"#a88010",
+    "--amber":"#e8c840","--red":"#c84820",
+    "--text":"#f8edcc","--text2":"#c8a840","--text3":"#4a3a10",
   },
   sakura: {
     name: "Sakura", icon: "🌸",
@@ -55,32 +55,41 @@ const THEMES = {
     "--amber":"#e8967a","--red":"#c0556a",
     "--text":"#2d1c22","--text2":"#5c3a45","--text3":"#9e6e7a",
   },
+  disco: {
+    name: "Disco", icon: "🪩",
+    "--bg":"#f5f5f5","--bg2":"#ffffff","--bg3":"#ebebeb",
+    "--border":"#d0d0d0","--border2":"#b0b0b0",
+    "--cyan":"#e8000a","--cyan2":"#b80008",
+    "--green":"#1a1a1a","--green2":"#000000",
+    "--amber":"#f5c800","--red":"#e8000a",
+    "--text":"#0a0a0a","--text2":"#2a2a2a","--text3":"#909090",
+  },
   sapphire: {
     name: "Sapphire", icon: "💎",
-    "--bg":"#08121f","--bg2":"#0e1e30","--bg3":"#060e1a",
-    "--border":"#163050","--border2":"#204870",
-    "--cyan":"#1a8fd1","--cyan2":"#0f6fa8",
-    "--green":"#22c47a","--green2":"#189a5c",
-    "--amber":"#f0a030","--red":"#e03c3c",
-    "--text":"#d0e8f8","--text2":"#6aadd4","--text3":"#264a68",
+    "--bg":"#060d18","--bg2":"#0a1525","--bg3":"#03080f",
+    "--border":"#0e2540","--border2":"#1a3d60",
+    "--cyan":"#00aaff","--cyan2":"#0080cc",
+    "--green":"#00e5aa","--green2":"#00b880",
+    "--amber":"#ffaa00","--red":"#ff4466",
+    "--text":"#e0f0ff","--text2":"#60aaee","--text3":"#1a3a58",
   },
   ruby: {
-    name: "Ruby", icon: "♦",
-    "--bg":"#130808","--bg2":"#1e0d0d","--bg3":"#0d0505",
-    "--border":"#3a1010","--border2":"#5a1c1c",
-    "--cyan":"#d63a20","--cyan2":"#aa2a14",
-    "--green":"#58b870","--green2":"#3e9050",
-    "--amber":"#f07820","--red":"#ff4444",
-    "--text":"#f5d8d0","--text2":"#c08878","--text3":"#5a2a20",
+    name: "Ruby", icon: "🌋",
+    "--bg":"#100505","--bg2":"#1a0808","--bg3":"#080202",
+    "--border":"#300a0a","--border2":"#501010",
+    "--cyan":"#ff3a18","--cyan2":"#cc2a10",
+    "--green":"#60cc50","--green2":"#409838",
+    "--amber":"#ff8800","--red":"#ff2244",
+    "--text":"#ffe8e0","--text2":"#ee8060","--text3":"#501a10",
   },
   emerald: {
-    name: "Emerald", icon: "◆",
-    "--bg":"#081410","--bg2":"#0e1e18","--bg3":"#050e0a",
-    "--border":"#123020","--border2":"#1a4a30",
-    "--cyan":"#28b060","--cyan2":"#1a8848",
-    "--green":"#50d880","--green2":"#28a858",
-    "--amber":"#d4a020","--red":"#e04848",
-    "--text":"#c8f0dc","--text2":"#6ab880","--text3":"#1e4830",
+    name: "Emerald", icon: "🐉",
+    "--bg":"#050f08","--bg2":"#091808","--bg3":"#020a04",
+    "--border":"#0a2810","--border2":"#144020",
+    "--cyan":"#00e060","--cyan2":"#00aa48",
+    "--green":"#80ff60","--green2":"#50cc38",
+    "--amber":"#f0d000","--red":"#ff4040",
+    "--text":"#d0ffdc","--text2":"#50e880","--text3":"#0e3018",
   },
 };
 
@@ -889,7 +898,7 @@ export default function App() {
       const c = localStorage.getItem(STORAGE_CONFIG);
       const seen = localStorage.getItem("mochi_onboarded");
       if (d) setCalls(JSON.parse(d));
-      if (c) { const cfg = JSON.parse(c); setConfig(cfg); setTempConfig(cfg); setTempGoal(cfg.dailyMoneyGoal || 30); setActiveRate(cfg.baseRate ?? 0.12); applyTheme(cfg.theme || "light"); }
+      if (c) { const cfg = JSON.parse(c); setConfig(cfg); setTempConfig(cfg); setTempGoal(cfg.dailyMoneyGoal || 30); setActiveRate(cfg.baseRate ?? 0.12); applyTheme(cfg.theme || "arctic"); }
       const cy = localStorage.getItem(STORAGE_CYCLES);
       if (cy) setCustomCycles(JSON.parse(cy));
       if (!seen) setOnboardStep(0);
@@ -1421,7 +1430,7 @@ export default function App() {
             <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:10}}>THEME</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(68px,1fr))",gap:8}}>
               {Object.entries(THEMES).map(([key, t]) => {
-                const active = (config.theme || "light") === key;
+                const active = (config.theme || "arctic") === key;
                 return (
                   <button key={key} onClick={() => {
                     const nc = {...config, theme: key};
