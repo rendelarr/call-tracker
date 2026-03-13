@@ -770,6 +770,15 @@ function getCycleStats(cycle, billableCalls) {
   return { mins: cc.reduce((s, c) => s + c.duration, 0), money: cc.reduce((s, c) => s + c.pay, 0), count: cc.length };
 }
 
+// Surge check with safe floating-point comparison (4 decimal places)
+// Avoids false positives like 0.12000000000000001 > 0.12
+function isSurge(call, baseRate) {
+  if (call.duration <= 0) return false;
+  const callRate = Math.round((call.pay / call.duration) * 10000);
+  const base     = Math.round((baseRate ?? 0.12)         * 10000);
+  return callRate > base;
+}
+
 export default function App() {
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -1743,10 +1752,10 @@ export default function App() {
                       <div style={{fontWeight:600,fontSize:17}}>#{c.customerId}</div>
                       <div style={{fontSize:15,color:"var(--text2)",fontFamily:"var(--mono)"}}>{c.callStart} · {c.duration}m</div>
                     </div>
-                    {(c.duration > 0 && (c.pay / c.duration) > (config.baseRate ?? 0.12)) && (
+                    {isSurge(c, config.baseRate) && (
                       <span style={{display:"inline-flex",alignItems:"center",gap:3}}>
                         <span style={{fontSize:12,background:"#fef3c7",color:"var(--amber)",padding:"2px 7px",borderRadius:6,border:"1px solid var(--amber)44",fontWeight:700}}>⚡ SURGE</span>
-                        <InfoTip id={`surge-${c.id}`} activeId={tooltip} setActiveId={setTooltip} text={`This call's rate ($${(c.pay/c.duration).toFixed(3)}/min) is above your base rate ($${(config.baseRate??0.12).toFixed(2)}/min) — it counted as a surge hour.`}/>
+                        <InfoTip id={`surge-${c.id}`} activeId={tooltip} setActiveId={setTooltip} text={`This call's rate ($${(c.pay/c.duration).toFixed(4)}/min) is above your base rate ($${(config.baseRate??0.12).toFixed(2)}/min) — it counted as a surge hour.`}/>
                       </span>
                     )}
                   </div>
@@ -2240,7 +2249,7 @@ export default function App() {
               const bil        = dayCalls.filter(c => c.billable === "Yes");
               const mins       = bil.reduce((s, c) => s + c.duration, 0);
               const money      = bil.reduce((s, c) => s + c.pay, 0);
-              const surgeCount = bil.filter(c => c.duration > 0 && (c.pay / c.duration) > (config.baseRate ?? 0.12)).length;
+              const surgeCount = bil.filter(c => isSurge(c, config.baseRate)).length;
               const isOpen     = expandedDays.has(date);
               const toggle     = () => setExpandedDays(prev => { const next = new Set(prev); isOpen ? next.delete(date) : next.add(date); return next; });
               return (
@@ -2264,7 +2273,7 @@ export default function App() {
                           <div style={{display:"flex",alignItems:"center",gap:8}}>
                             <span style={{fontWeight:600,fontFamily:"var(--mono)",color:"var(--text2)"}}>{c.customerId}</span>
                             <span style={{color:"var(--text3)",fontFamily:"var(--mono)"}}>{c.callStart}</span>
-                            {(c.duration > 0 && (c.pay / c.duration) > (config.baseRate ?? 0.12)) && <span style={{fontSize:12,background:"#fef3c7",color:"var(--amber)",padding:"1px 6px",borderRadius:4,border:"1px solid var(--amber)44",fontWeight:700}}>⚡ SURGE</span>}
+                            {isSurge(c, config.baseRate) && <span style={{fontSize:12,background:"#fef3c7",color:"var(--amber)",padding:"1px 6px",borderRadius:4,border:"1px solid var(--amber)44",fontWeight:700}}>⚡ SURGE</span>}
                             {c.billable !== "Yes" && <span style={{fontSize:12,background:"var(--red)22",color:"var(--red)",padding:"1px 6px",borderRadius:4}}>NB</span>}
                           </div>
                           <div style={{display:"flex",gap:10,alignItems:"center"}}>
