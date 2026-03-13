@@ -46,6 +46,42 @@ const THEMES = {
     "--amber":"#f59e0b","--red":"#f87171",
     "--text":"#e2e8f4","--text2":"#8892aa","--text3":"#3a4260",
   },
+  sakura: {
+    name: "Sakura", icon: "🌸",
+    "--bg":"#fdf0f2","--bg2":"#fce4e9","--bg3":"#f7d0d8",
+    "--border":"#e8b4be","--border2":"#d4899a",
+    "--cyan":"#c96b80","--cyan2":"#a84d62",
+    "--green":"#6a9e7f","--green2":"#4d7a5e",
+    "--amber":"#e8967a","--red":"#c0556a",
+    "--text":"#2d1c22","--text2":"#5c3a45","--text3":"#9e6e7a",
+  },
+  sapphire: {
+    name: "Sapphire", icon: "💎",
+    "--bg":"#08121f","--bg2":"#0e1e30","--bg3":"#060e1a",
+    "--border":"#163050","--border2":"#204870",
+    "--cyan":"#1a8fd1","--cyan2":"#0f6fa8",
+    "--green":"#22c47a","--green2":"#189a5c",
+    "--amber":"#f0a030","--red":"#e03c3c",
+    "--text":"#d0e8f8","--text2":"#6aadd4","--text3":"#264a68",
+  },
+  ruby: {
+    name: "Ruby", icon: "♦",
+    "--bg":"#130808","--bg2":"#1e0d0d","--bg3":"#0d0505",
+    "--border":"#3a1010","--border2":"#5a1c1c",
+    "--cyan":"#d63a20","--cyan2":"#aa2a14",
+    "--green":"#58b870","--green2":"#3e9050",
+    "--amber":"#f07820","--red":"#ff4444",
+    "--text":"#f5d8d0","--text2":"#c08878","--text3":"#5a2a20",
+  },
+  emerald: {
+    name: "Emerald", icon: "◆",
+    "--bg":"#081410","--bg2":"#0e1e18","--bg3":"#050e0a",
+    "--border":"#123020","--border2":"#1a4a30",
+    "--cyan":"#28b060","--cyan2":"#1a8848",
+    "--green":"#50d880","--green2":"#28a858",
+    "--amber":"#d4a020","--red":"#e04848",
+    "--text":"#c8f0dc","--text2":"#6ab880","--text3":"#1e4830",
+  },
 };
 
 const PAY_CYCLES = [
@@ -1383,7 +1419,7 @@ export default function App() {
           {/* Theme selector */}
           <div style={{marginBottom:20}}>
             <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:10}}>THEME</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(68px,1fr))",gap:8}}>
               {Object.entries(THEMES).map(([key, t]) => {
                 const active = (config.theme || "light") === key;
                 return (
