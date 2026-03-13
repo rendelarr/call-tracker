@@ -4,20 +4,31 @@ import { useState, useEffect, useRef } from "react";
 
 const STORAGE_KEY    = "call_tracker_data";
 const STORAGE_CONFIG = "call_tracker_config";
-const defaultConfig  = { dailyMoneyGoal: 30, theme: "light" };
+const STORAGE_CYCLES = "mochi_cycles";
+const defaultConfig  = { dailyMoneyGoal: 30, theme: "arctic", baseRate: 0.12 };
+
+function getRates(base = 0.12) {
+  const r = v => Math.round(v * 100) / 100;
+  return [
+    { value: r(base),       label: "Normal", color: "#7a8a9a", icon: "⚪" },
+    { value: r(base+0.01),  label: "Bronce", color: "#c47d3a", icon: "🥉" },
+    { value: r(base+0.02),  label: "Silver",  color: "#8fa8c2", icon: "🥈" },
+    { value: r(base+0.03),  label: "Gold",   color: "#ffb800", icon: "🥇" },
+  ];
+}
 
 const THEMES = {
-  light: {
-    name: "Light", icon: "☀️",
-    "--bg":"#eef0f3","--bg2":"#f8f9fb","--bg3":"#e4e7ec",
-    "--border":"#d0d5de","--border2":"#b8bfcc",
-    "--cyan":"#0099aa","--cyan2":"#007a8a",
-    "--green":"#16a34a","--green2":"#15803d",
-    "--amber":"#b45309","--red":"#dc2626",
-    "--text":"#1a2030","--text2":"#4a5568","--text3":"#8a95a8",
+  arctic: {
+    name: "Arctic", icon: "🧊",
+    "--bg":"#f0f4f8","--bg2":"#e8eef4","--bg3":"#dde5ed",
+    "--border":"#c2cfd9","--border2":"#a8bac8",
+    "--cyan":"#2d7fa8","--cyan2":"#1f5f80",
+    "--green":"#2a7d5c","--green2":"#1e5c42",
+    "--amber":"#5a7a8a","--red":"#a03a4a",
+    "--text":"#0e1f2d","--text2":"#3a5468","--text3":"#8aaabb",
   },
   eva: {
-    name: "Eva", icon: "✦",
+    name: "Eva", icon: "🫧",
     "--bg":"#1e1330","--bg2":"#2e1f4a","--bg3":"#160d24",
     "--border":"#3a2660","--border2":"#4a3370",
     "--cyan":"#9b72cf","--cyan2":"#7a50aa",
@@ -26,23 +37,61 @@ const THEMES = {
     "--blue":"#818cf8","--purple":"#c084fc",
     "--text":"#e8d5ff","--text2":"#c4a882","--text3":"#7a6690",
   },
-  dark: {
-    name: "Dark", icon: "◈",
-    "--bg":"#0f1117","--bg2":"#161b27","--bg3":"#0a0d13",
-    "--border":"#1c2030","--border2":"#252d40",
-    "--cyan":"#22d3ee","--cyan2":"#0ea5c9",
-    "--green":"#4ade80","--green2":"#22c55e",
-    "--amber":"#f59e0b","--red":"#f87171",
-    "--text":"#e2e8f4","--text2":"#8892aa","--text3":"#3a4260",
+  void: {
+    name: "Void", icon: "⚡",
+    "--bg":"#050505","--bg2":"#0c0c0c","--bg3":"#000000",
+    "--border":"#1a1508","--border2":"#2e2510",
+    "--cyan":"#c8941a","--cyan2":"#a07010",
+    "--green":"#d4a820","--green2":"#a88010",
+    "--amber":"#e8c840","--red":"#c84820",
+    "--text":"#f8edcc","--text2":"#c8a840","--text3":"#4a3a10",
+  },
+  sakura: {
+    name: "Sakura", icon: "🌸",
+    "--bg":"#fdf0f2","--bg2":"#fce4e9","--bg3":"#f7d0d8",
+    "--border":"#e8b4be","--border2":"#d4899a",
+    "--cyan":"#c96b80","--cyan2":"#a84d62",
+    "--green":"#6a9e7f","--green2":"#4d7a5e",
+    "--amber":"#e8967a","--red":"#c0556a",
+    "--text":"#2d1c22","--text2":"#5c3a45","--text3":"#9e6e7a",
+  },
+  disco: {
+    name: "Disco", icon: "🪩",
+    "--bg":"#f5f5f5","--bg2":"#ffffff","--bg3":"#ebebeb",
+    "--border":"#d0d0d0","--border2":"#b0b0b0",
+    "--cyan":"#e8000a","--cyan2":"#b80008",
+    "--green":"#1a1a1a","--green2":"#000000",
+    "--amber":"#f5c800","--red":"#e8000a",
+    "--text":"#0a0a0a","--text2":"#2a2a2a","--text3":"#909090",
+  },
+  sapphire: {
+    name: "Sapphire", icon: "💎",
+    "--bg":"#060d18","--bg2":"#0a1525","--bg3":"#03080f",
+    "--border":"#0e2540","--border2":"#1a3d60",
+    "--cyan":"#00aaff","--cyan2":"#0080cc",
+    "--green":"#00e5aa","--green2":"#00b880",
+    "--amber":"#ffaa00","--red":"#ff4466",
+    "--text":"#e0f0ff","--text2":"#60aaee","--text3":"#1a3a58",
+  },
+  ruby: {
+    name: "Ruby", icon: "🌋",
+    "--bg":"#100505","--bg2":"#1a0808","--bg3":"#080202",
+    "--border":"#300a0a","--border2":"#501010",
+    "--cyan":"#ff3a18","--cyan2":"#cc2a10",
+    "--green":"#60cc50","--green2":"#409838",
+    "--amber":"#ff8800","--red":"#ff2244",
+    "--text":"#ffe8e0","--text2":"#ee8060","--text3":"#501a10",
+  },
+  emerald: {
+    name: "Emerald", icon: "🐉",
+    "--bg":"#050f08","--bg2":"#091808","--bg3":"#020a04",
+    "--border":"#0a2810","--border2":"#144020",
+    "--cyan":"#00e060","--cyan2":"#00aa48",
+    "--green":"#80ff60","--green2":"#50cc38",
+    "--amber":"#f0d000","--red":"#ff4040",
+    "--text":"#d0ffdc","--text2":"#50e880","--text3":"#0e3018",
   },
 };
-
-const RATES = [
-  { value: 0.12, label: "Normal", color: "#7a8a9a", icon: "⚪" },
-  { value: 0.13, label: "Bronce", color: "#c47d3a", icon: "🥉" },
-  { value: 0.14, label: "Silver",  color: "#8fa8c2", icon: "🥈" },
-  { value: 0.15, label: "Gold",   color: "#ffb800", icon: "🥇" },
-];
 
 const PAY_CYCLES = [
   { start:"12/13/2025", end:"12/26/2025", payDate:"12/31/2025" },
@@ -86,9 +135,11 @@ const TABS = [
 
 const sfx = (() => {
   let ctx = null;
+  let muted = false;
   const getCtx = () => { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); return ctx; };
 
   function play(notes, type = "sine", vol = 0.18) {
+    if (muted) return;
     try {
       const c = getCtx();
       notes.forEach(([freq, start, dur, endFreq]) => {
@@ -110,8 +161,27 @@ const sfx = (() => {
     // ✅ Llamada agregada — chime ascendente alegre (C5 E5 G5)
     callAdded: () => play([[523,0,.12],[659,.1,.12],[784,.2,.2]], "sine", 0.16),
 
-    // 🗓 Navegación entre tabs — pop suave single note
-    tabSwitch: () => play([[440,0,.07,520]], "triangle", 0.10),
+    // ✅ Importar llamadas — confirmación suave
+    imported: () => play([[523,0,.1],[659,.12,.1],[784,.24,.25]], "triangle", 0.13),
+
+    // 🎉 Meta del día alcanzada — level up armonioso
+    goalReached: () => play([[392,0,.07],[494,.08,.07],[587,.16,.07],[740,.24,.07],[988,.32,.07],[740,.40,.05],[988,.46,.04],[1175,.51,.35]], "sine", 0.14),
+
+    // ✏️ Guardar edición — dos notas suaves de confirmación
+    saved: () => play([[523,0,.08],[659,.1,.15]], "triangle", 0.12),
+
+    // 🗑 Eliminar — nota descendente corta
+    deleted: () => play([[330,0,.18,220]], "sine", 0.12),
+
+    // ⚠️ Error — dos notas disonantes breves
+    error: () => play([[311,0,.1],[277,.08,.15]], "sawtooth", 0.10),
+
+    // 🗓 Navegación entre tabs — pop suave
+    tabSwitch: () => play([[440,0,.07,520]], "triangle", 0.06),
+
+    // 🔇 Mute toggle
+    toggle: () => { muted = !muted; return muted; },
+    isMuted: () => muted,
   };
 })();
 
@@ -285,9 +355,9 @@ function getStreak(activeDates) {
   return s;
 }
 
-function getCurrentCycle() {
+function getCurrentCycle(cycles) {
   const now = new Date(); now.setHours(0,0,0,0);
-  return PAY_CYCLES.find(c => {
+  return cycles.find(c => {
     const s = toDate(c.start), e = toDate(c.end);
     return now >= s && now <= e;
   }) || null;
@@ -431,7 +501,7 @@ const StatBox = ({ label, value, color = "var(--cyan)", sub }) => (
   </div>
 );
 
-function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
+function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycles }) {
   const [hoveredH, setHoveredH] = useState(null);
   const nowH      = new Date().getHours();
   const HOURS     = Array.from({length:24}, (_, i) => i);
@@ -463,8 +533,8 @@ function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
   const fmtH = h => `${h%12||12}${h<12?"am":"pm"}`;
   const medals = ["🥇","🥈","🥉"];
 
-  // Build dropdown options: all PAY_CYCLES + "Todos"
-  const cycleOptions = PAY_CYCLES.map((c, i) => ({ value: i, label: `${c.start} → ${c.end}` }));
+  // Build dropdown options: all cycles + "Todos"
+  const cycleOptions = cycles.map((c, i) => ({ value: i, label: `${c.start} → ${c.end}` }));
 
   return (
     <div style={{...CC.card,padding:20,marginBottom:12}} className="card">
@@ -515,7 +585,7 @@ function HeatmapCard({ heatmap, maxHeat, scope, setScope, cycleLabel }) {
           <option value="cycle">Current cycle</option>
           <option value="all">All cycles</option>
           <optgroup label="Previous cycles">
-            {cycleOptions.filter(o => toDate(PAY_CYCLES[o.value].end) < new Date()).map(o => (
+            {cycleOptions.filter(o => toDate(cycles[o.value].end) < new Date()).map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </optgroup>
@@ -666,7 +736,93 @@ function MochiLogo({ size = 4 }) {
   );
 }
 
+// ─── Tooltip ──────────────────────────────────────────────────────────────────
+
+function InfoTip({ id, text, activeId, setActiveId }) {
+  const handleClick = (e) => {
+    e.stopPropagation();
+    const isOpen = activeId && activeId.id === id;
+    if (isOpen) { setActiveId(null); return; }
+    const r = e.currentTarget.getBoundingClientRect();
+    const spaceAbove = r.top;
+    const showBelow  = spaceAbove < 160; // flip if too close to top
+    const rawLeft    = r.left + r.width / 2;
+    const left       = Math.min(Math.max(rawLeft, 120), window.innerWidth - 120);
+    setActiveId({ id, x: left, y: r.top, bottom: r.bottom, showBelow });
+  };
+
+  const isOpen    = activeId && activeId.id === id;
+  const showBelow = isOpen && activeId.showBelow;
+  const tipX      = isOpen ? activeId.x : 0;
+  const tipY      = isOpen ? (showBelow ? activeId.bottom + 8 : activeId.y - 8) : 0;
+
+  return (
+    <span style={{display:"inline-flex",alignItems:"center",marginLeft:5}}>
+      <button
+        onClick={handleClick}
+        style={{background:"none",border:"none",cursor:"pointer",padding:0,lineHeight:1,fontSize:14,color:"var(--text3)",display:"inline-flex"}}
+        aria-label="info"
+      >ⓘ</button>
+      {isOpen && (
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            position:"fixed",
+            top:  tipY,
+            left: tipX,
+            transform: showBelow ? "translateX(-50%)" : "translate(-50%, -100%)",
+            background:"var(--bg2)",
+            border:"1px solid var(--border2)",
+            borderRadius:10,
+            padding:"10px 13px",
+            fontSize:14,
+            color:"var(--text2)",
+            lineHeight:1.5,
+            width:220,
+            zIndex:9999,
+            boxShadow:"0 4px 20px rgba(0,0,0,0.25)",
+          }}
+        >
+          {text}
+          {/* Arrow — points toward the button */}
+          <div style={{
+            position:"absolute",
+            ...(showBelow
+              ? { top:-5, bottom:"auto" }
+              : { bottom:-5, top:"auto" }),
+            left:"50%",
+            transform:"translateX(-50%)",
+            width:8, height:8,
+            background:"var(--bg2)",
+            border:"1px solid var(--border2)",
+            borderBottom: showBelow ? "none" : "1px solid var(--border2)",
+            borderRight:  showBelow ? "none" : "1px solid var(--border2)",
+            borderTop:    showBelow ? "1px solid var(--border2)" : "none",
+            borderLeft:   showBelow ? "1px solid var(--border2)" : "none",
+            rotate:"45deg",
+          }}/>
+        </div>
+      )}
+    </span>
+  );
+}
+
 // ─── App ──────────────────────────────────────────────────────────────────────
+
+function getCycleStats(cycle, billableCalls) {
+  const s = toDate(cycle.start), e = toDate(cycle.end);
+  const cc = billableCalls.filter(c => { const d = toDate(c.date); return d >= s && d <= e; });
+  return { mins: cc.reduce((s, c) => s + c.duration, 0), money: cc.reduce((s, c) => s + c.pay, 0), count: cc.length };
+}
+
+// Surge check with safe floating-point comparison (4 decimal places)
+// Avoids false positives like 0.12000000000000001 > 0.12
+function isSurge(call, baseRate) {
+  if (call.duration <= 0) return false;
+  const callRate = Math.round((call.pay / call.duration) * 10000);
+  const base     = Math.round((baseRate ?? 0.12)         * 10000);
+  return callRate > base;
+}
 
 export default function App() {
 
@@ -674,7 +830,7 @@ export default function App() {
   const [calls,          setCalls]          = useState([]);
   const [config,         setConfig]         = useState(defaultConfig);
   const [tab,            setTab]            = useState("home");
-  const [activeRate,     setActiveRate]     = useState(0.12);
+  const [activeRate,     setActiveRate]     = useState(defaultConfig.baseRate);
   const [toast,          setToast]          = useState("");
   const [cycleView,      setCycleView]      = useState("current");
   const [expandedDays,   setExpandedDays]   = useState(new Set());
@@ -683,10 +839,12 @@ export default function App() {
 
   // Modals
   const [showGoal,       setShowGoal]       = useState(false);
+  const [isMuted,        setIsMuted]        = useState(false);
   const [showConfig,     setShowConfig]     = useState(false);
   const [showManual,     setShowManual]     = useState(false);
   const [showPaste,      setShowPaste]      = useState(false);
   const [tempGoal,       setTempGoal]       = useState(defaultConfig.dailyMoneyGoal);
+  const [tempConfig,     setTempConfig]     = useState(defaultConfig);
 
   // Live call
   const [liveActive,     setLiveActive]     = useState(false);
@@ -718,15 +876,32 @@ export default function App() {
   const appStartTs = useRef(Date.now());
   const [idleSecs, setIdleSecs] = useState(0);
 
+  // Custom cycles
+  const [customCycles,    setCustomCycles]    = useState(null); // null = use PAY_CYCLES default
+  const [showEditCycles,  setShowEditCycles]  = useState(false);
+  const [editingCycles,   setEditingCycles]   = useState([]);   // working copy inside modal
+
+  // Onboarding
+  const [onboardStep, setOnboardStep] = useState(null); // null = not shown, 0-3 = step
+  const [onboardRate, setOnboardRate] = useState(0.12);
+  const [onboardGoal, setOnboardGoal] = useState(30);
+
+  // Tooltip
+  const [tooltip, setTooltip] = useState(null); // { id, text }
+
   // ── Effects ────────────────────────────────────────────────────────────────
 
   // Load persisted data on mount
   useEffect(() => {
     try {
       const d = localStorage.getItem(STORAGE_KEY);
-      if (d) setCalls(JSON.parse(d));
       const c = localStorage.getItem(STORAGE_CONFIG);
-      if (c) { const cfg = JSON.parse(c); setConfig(cfg); setTempConfig(cfg); setTempGoal(cfg.dailyMoneyGoal || 30); applyTheme(cfg.theme || "light"); }
+      const seen = localStorage.getItem("mochi_onboarded");
+      if (d) setCalls(JSON.parse(d));
+      if (c) { const cfg = JSON.parse(c); setConfig(cfg); setTempConfig(cfg); setTempGoal(cfg.dailyMoneyGoal || 30); setActiveRate(cfg.baseRate ?? 0.12); applyTheme(cfg.theme || "arctic"); }
+      const cy = localStorage.getItem(STORAGE_CYCLES);
+      if (cy) setCustomCycles(JSON.parse(cy));
+      if (!seen) setOnboardStep(0);
     } catch {}
   }, []);
 
@@ -774,9 +949,19 @@ export default function App() {
   const todayMoney    = todayCalls.reduce((s, c) => s + c.pay, 0);
   const todayMins     = todayCalls.reduce((s, c) => s + c.duration, 0);
   const moneyPct      = Math.min(100, Math.round((todayMoney / config.dailyMoneyGoal) * 100));
-  const minsNeeded    = Math.ceil(config.dailyMoneyGoal / 0.12); // Base rate (Normal) as reference for minute goal
+  const RATES         = getRates(config.baseRate ?? 0.12);
+  const activeCycles  = customCycles ?? PAY_CYCLES;
+  const minsNeeded    = Math.ceil(config.dailyMoneyGoal / (config.baseRate ?? 0.12)); // Base rate as reference for minute goal
   const minsLeft      = Math.max(0, minsNeeded - todayMins);
   const minsGoalReached = minsLeft === 0;
+
+  // 🎉 Sonido de meta alcanzada — solo dispara una vez al cruzar el 100%
+  const goalReachedRef = useRef(false);
+  useEffect(() => {
+    const reached = todayMoney >= config.dailyMoneyGoal && config.dailyMoneyGoal > 0;
+    if (reached && !goalReachedRef.current) { sfx.goalReached(); }
+    goalReachedRef.current = reached;
+  }, [todayMoney, config.dailyMoneyGoal]);
 
   const weekDates = last7Dates();
   const weekData  = weekDates.map(d => ({
@@ -790,7 +975,7 @@ export default function App() {
   const maxMins   = Math.max(...weekData.map(d => d.mins), 1);
 
   const sortedDates  = [...new Set(calls.map(c => c.date))].sort((a, b) => toDate(b) - toDate(a));
-  const currentCycle = getCurrentCycle();
+  const currentCycle = getCurrentCycle(activeCycles);
   const activeDates  = new Set(Object.keys(byDate));
   const streak       = getStreak(activeDates);
   const last30       = last30Dates();
@@ -804,15 +989,10 @@ export default function App() {
 
   const heatmapCalls = (() => {
     if (heatmapScope === "all") return billableCalls;
-    const cycleToUse = typeof heatmapScope === "number" ? PAY_CYCLES[heatmapScope] : currentCycle;
+    const cycleToUse = typeof heatmapScope === "number" ? activeCycles[heatmapScope] : currentCycle;
     if (!cycleToUse) return billableCalls;
     const s = toDate(cycleToUse.start), e = toDate(cycleToUse.end);
     return billableCalls.filter(c => { const d = toDate(c.date); return d >= s && d <= e; });
-  })();
-  const heatmapCycleLabel = (() => {
-    if (heatmapScope === "all") return "All cycles";
-    const cycleToUse = typeof heatmapScope === "number" ? PAY_CYCLES[heatmapScope] : currentCycle;
-    return cycleToUse ? `${cycleToUse.start} → ${cycleToUse.end}` : "";
   })();
   const heatmap = Array(24).fill(0);
   heatmapCalls.forEach(c => { const h = parseHour(c.callStart); if (h !== null) heatmap[h] += c.duration; });
@@ -820,7 +1000,7 @@ export default function App() {
 
   const sortedToday = [...todayCalls].sort((a, b) => (timeToMins(a.callStart) || 0) - (timeToMins(b.callStart) || 0));
   let avgGap = null;
-  let allGaps = [];  // individual gaps between consecutive calls
+  let allGaps = [];
   if (sortedToday.length > 1) {
     const rawGaps = [];
     for (let i = 1; i < sortedToday.length; i++) {
@@ -833,7 +1013,7 @@ export default function App() {
 
   let projection = null;
   if (currentCycle) {
-    const stats = getCycleStats(currentCycle);
+    const stats = getCycleStats(currentCycle, billableCalls);
     const s = toDate(currentCycle.start), e = toDate(currentCycle.end);
     const totalDays  = Math.round((e - s) / 86400000) + 1;
     const daysPassed = totalDays - Math.max(daysUntil(currentCycle.end), 0);
@@ -849,13 +1029,6 @@ export default function App() {
   const scoreLabel  = score >= 75 ? "Excellent" : score >= 45 ? "Good" : score >= 20 ? "Slow" : "Inactive";
 
   // ── Functions ──────────────────────────────────────────────────────────────
-
-  function getCycleStats(cycle) {
-    const s = toDate(cycle.start), e = toDate(cycle.end);
-    const cc = billableCalls.filter(c => { const d = toDate(c.date); return d >= s && d <= e; });
-    return { mins: cc.reduce((s, c) => s + c.duration, 0), money: cc.reduce((s, c) => s + c.pay, 0), count: cc.length };
-  }
-
   const toastRef = useRef(null);
   function showToast(msg) {
     clearTimeout(toastRef.current);
@@ -863,7 +1036,7 @@ export default function App() {
     toastRef.current = setTimeout(() => setToast(""), 3000);
   }
 
-  function handleDelete(id) { setCalls(prev => prev.filter(c => c.id !== id)); }
+  function handleDelete(id) { sfx.deleted(); setCalls(prev => prev.filter(c => c.id !== id)); }
 
   // Live call
   function startLiveCall()  { setLiveSeconds(0); setLiveStart(getNowTimeStr()); setLiveActive(true); }
@@ -905,7 +1078,7 @@ export default function App() {
 
   function submitManual() {
     const dur = parseInt(manualForm.duration) || 0;
-    if (!dur) { showToast("⚠️ Invalid duration"); return; }
+    if (!dur) { sfx.error(); showToast("⚠️ Invalid duration"); return; }
     const newCall = {
       customerId: manualForm.customerId || "Manual",
       date: todayStr, callStart: manualForm.startTime || getNowTimeStr(),
@@ -963,6 +1136,7 @@ export default function App() {
       };
     }));
     setEditingId(null);
+    sfx.saved();
     showToast("✏️ Updated");
   }
 
@@ -975,7 +1149,7 @@ export default function App() {
   }
   function handleAdd() {
     if (!parsed) return;
-    if (parsed.billable !== "Yes") { showToast("⚠️ No billable."); setParsed(null); setRawText(""); return; }
+    if (parsed.billable !== "Yes") { sfx.error(); showToast("⚠️ No billable."); setParsed(null); setRawText(""); return; }
     setCalls(prev => [...prev, parsed]); setParsed(null); setRawText(""); sfx.callAdded(); showToast("✅ Call added");
   }
 
@@ -1007,7 +1181,7 @@ export default function App() {
   function confirmImport() {
     const existing = new Set(calls.map(c => `${c.customerId}-${c.date}-${c.callStart}`));
     const newCalls = importPreview.filter(c => !existing.has(`${c.customerId}-${c.date}-${c.callStart}`));
-    setCalls(prev => [...prev, ...newCalls]); setImportStep("done"); sfx.callAdded(); showToast(`✅ ${newCalls.length} imported`);
+    setCalls(prev => [...prev, ...newCalls]); setImportStep("done"); sfx.imported(); showToast(`✅ ${newCalls.length} imported`);
   }
 
   function resetImport() {
@@ -1020,7 +1194,7 @@ export default function App() {
   }
 
   function exportCSV() {
-    const rows = getExportRows(); if (!rows.length) { showToast("⚠️ No calls"); return; }
+    const rows = getExportRows(); if (!rows.length) { sfx.error(); showToast("⚠️ No calls"); return; }
     const headers = Object.keys(rows[0]);
     const csv = [headers.join(","), ...rows.map(r => headers.map(h => '"' + String(r[h]).replace(/"/g, '""') + '"').join(","))].join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type:"text/csv;charset=utf-8;" }));
@@ -1030,15 +1204,15 @@ export default function App() {
   }
 
   function exportXLSX() {
-    const XLSX = window.XLSX; if (!XLSX) { showToast("⚠️ Library unavailable"); return; }
-    const rows = getExportRows(); if (!rows.length) { showToast("⚠️ No calls"); return; }
+    const XLSX = window.XLSX; if (!XLSX) { sfx.error(); showToast("⚠️ Library unavailable"); return; }
+    const rows = getExportRows(); if (!rows.length) { sfx.error(); showToast("⚠️ No calls"); return; }
     const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Calls");
     XLSX.writeFile(wb, `call-tracker-${today()}.xlsx`); showToast("✅ Excel exported");
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)",fontFamily:"var(--sans)",paddingBottom:80}}>
+    <div onClick={() => setTooltip(null)} style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)",fontFamily:"var(--sans)",paddingBottom:80}}>
 
       {/* Toast */}
       {toast && (
@@ -1080,15 +1254,155 @@ export default function App() {
           <button onClick={() => { setTempGoal(config.dailyMoneyGoal); setShowGoal(true); }} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:8,color:"var(--text2)",padding:"7px 12px",cursor:"pointer",fontSize:16,fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
             <span style={{color:"var(--amber)"}}>🎯</span> Goal
           </button>
-          <button onClick={() => setShowConfig(true)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:8,color:"var(--text2)",padding:"7px 12px",cursor:"pointer",fontSize:18}}>⚙</button>
+          <button onClick={() => { const m = sfx.toggle(); setIsMuted(m); }} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:8,color:isMuted?"var(--red)":"var(--text2)",padding:"7px 10px",cursor:"pointer",fontSize:17}} title={isMuted?"Unmute":"Mute"}>
+            {isMuted ? "🔇" : "🔊"}
+          </button>
+          <button onClick={() => { setShowConfig(true); }} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:8,color:"var(--text2)",padding:"7px 12px",cursor:"pointer",fontSize:18}}>⚙</button>
         </div>
       </div>
 
       {/* ── Modals ─────────────────────────────────────────────────────────── */}
 
+      {/* Onboarding */}
+      {onboardStep !== null && (
+        <div style={{position:"fixed",inset:0,background:"rgba(10,10,20,0.75)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{...CC.card,padding:28,width:"100%",maxWidth:360,animation:"slideUp .25s ease"}}>
+
+            {/* Progress dots */}
+            <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:24}}>
+              {[0,1,2,3].map(i => (
+                <div key={i} style={{width:i===onboardStep?20:8,height:8,borderRadius:99,background:i<=onboardStep?"var(--cyan)":"var(--border2)",transition:"all .2s"}}/>
+              ))}
+            </div>
+
+            {/* Step 0 — Welcome */}
+            {onboardStep === 0 && (
+              <div style={{textAlign:"center"}}>
+                <div style={{display:"flex",justifyContent:"center",marginBottom:16}}><MochiLogo size={5}/></div>
+                <div style={{fontSize:24,fontWeight:800,color:"var(--text)",marginBottom:10}}>Welcome to Mochi</div>
+                <div style={{fontSize:16,color:"var(--text2)",lineHeight:1.6,marginBottom:24}}>
+                  Mochi helps freelance phone interpreters track calls, monitor earnings, and hit their daily goals — all from one place.
+                </div>
+                <div style={{display:"grid",gap:8,fontSize:15,color:"var(--text2)",textAlign:"left",marginBottom:24}}>
+                  {[["☀️","Log calls in real time or manually"],["⚡","See your daily score and rhythm"],["🔄","Track earnings across pay cycles"],["⚡ SURGE","Spot calls above your normal rate automatically"]].map(([icon,txt]) => (
+                    <div key={txt} style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                      <span style={{fontSize:17,flexShrink:0}}>{icon}</span>
+                      <span>{txt}</span>
+                    </div>
+                  ))}
+                </div>
+                <button className="btn-primary" onClick={() => setOnboardStep(1)} style={{width:"100%",background:"var(--cyan)",border:"none",borderRadius:12,color:"#fff",padding:"14px",fontWeight:700,fontSize:17,cursor:"pointer"}}>
+                  Get started →
+                </button>
+              </div>
+            )}
+
+            {/* Step 1 — Base rate */}
+            {onboardStep === 1 && (
+              <div>
+                <div style={{fontSize:22,fontWeight:800,color:"var(--text)",marginBottom:6}}>Your base rate</div>
+                <div style={{fontSize:15,color:"var(--text2)",lineHeight:1.6,marginBottom:20}}>
+                  This is how much you earn per minute at your normal rate. Surge tiers (Bronce, Silver, Gold) add $0.01 each on top of this.
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                  <span style={{fontSize:15,color:"var(--text3)",fontWeight:700}}>BASE RATE</span>
+                  <span style={{fontFamily:"var(--mono)",fontWeight:800,fontSize:22,color:"var(--cyan)"}}>${onboardRate.toFixed(2)}<span style={{fontSize:13,color:"var(--text3)",fontWeight:400}}>/min</span></span>
+                </div>
+                <input type="range" min={0.08} max={0.25} step={0.01} value={onboardRate}
+                  onChange={e => setOnboardRate(parseFloat(e.target.value))}
+                  style={{width:"100%",accentColor:"var(--cyan)",cursor:"pointer",marginBottom:6}}
+                />
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"var(--text3)",marginBottom:20,fontFamily:"var(--mono)"}}>
+                  <span>$0.08</span><span>$0.25</span>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:24}}>
+                  {getRates(onboardRate).map(r => (
+                    <div key={r.label} style={{background:"var(--bg)",border:"1px solid var(--border)",borderRadius:8,padding:"7px 4px",textAlign:"center"}}>
+                      <div style={{fontSize:16}}>{r.icon}</div>
+                      <div style={{fontSize:13,fontFamily:"var(--mono)",fontWeight:700,color:"var(--text)",marginTop:2}}>${r.value.toFixed(2)}</div>
+                      <div style={{fontSize:12,color:"var(--text3)"}}>{r.label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  <button onClick={() => setOnboardStep(0)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:12,color:"var(--text2)",padding:"12px",fontWeight:600,fontSize:16,cursor:"pointer"}}>← Back</button>
+                  <button className="btn-primary" onClick={() => setOnboardStep(2)} style={{background:"var(--cyan)",border:"none",borderRadius:12,color:"#fff",padding:"12px",fontWeight:700,fontSize:16,cursor:"pointer"}}>Next →</button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2 — Daily goal */}
+            {onboardStep === 2 && (
+              <div>
+                <div style={{fontSize:22,fontWeight:800,color:"var(--text)",marginBottom:6}}>Daily earnings goal</div>
+                <div style={{fontSize:15,color:"var(--text2)",lineHeight:1.6,marginBottom:20}}>
+                  How much do you want to earn each day? Mochi will track your progress and celebrate when you hit it.
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                  <span style={{fontSize:15,color:"var(--text3)",fontWeight:700}}>DAILY GOAL</span>
+                  <span style={{fontFamily:"var(--mono)",fontWeight:800,fontSize:22,color:"var(--amber)"}}>${onboardGoal}</span>
+                </div>
+                <input type="range" min={5} max={200} step={1} value={onboardGoal}
+                  onChange={e => setOnboardGoal(parseInt(e.target.value))}
+                  style={{width:"100%",accentColor:"var(--amber)",cursor:"pointer",marginBottom:6}}
+                />
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"var(--text3)",marginBottom:8,fontFamily:"var(--mono)"}}>
+                  <span>$5</span><span>$200</span>
+                </div>
+                <div style={{background:"var(--bg)",borderRadius:10,padding:"12px 14px",marginBottom:24,fontSize:15,color:"var(--text2)"}}>
+                  At ${onboardRate.toFixed(2)}/min you'd need about <strong style={{color:"var(--cyan)",fontFamily:"var(--mono)"}}>{Math.ceil(onboardGoal/onboardRate)} min</strong> of calls to reach this goal.
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  <button onClick={() => setOnboardStep(1)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:12,color:"var(--text2)",padding:"12px",fontWeight:600,fontSize:16,cursor:"pointer"}}>← Back</button>
+                  <button className="btn-primary" onClick={() => setOnboardStep(3)} style={{background:"var(--cyan)",border:"none",borderRadius:12,color:"#fff",padding:"12px",fontWeight:700,fontSize:16,cursor:"pointer"}}>Next →</button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3 — How to log a call */}
+            {onboardStep === 3 && (
+              <div>
+                <div style={{fontSize:22,fontWeight:800,color:"var(--text)",marginBottom:6}}>Logging calls</div>
+                <div style={{fontSize:15,color:"var(--text2)",lineHeight:1.6,marginBottom:20}}>
+                  You have three ways to log a call:
+                </div>
+                <div style={{display:"grid",gap:12,marginBottom:24}}>
+                  {[
+                    ["🔴","Live","Tap Live before the call starts. Tap Stop when it ends — Mochi calculates duration automatically."],
+                    ["✍️","Manual","Enter the duration or start/end times directly after a call."],
+                    ["📋","Paste","Paste a raw call line from your Propio dashboard and Mochi parses it for you."],
+                  ].map(([icon,title,desc]) => (
+                    <div key={title} style={{display:"flex",gap:12,alignItems:"flex-start",background:"var(--bg)",borderRadius:10,padding:"12px 14px"}}>
+                      <span style={{fontSize:22,flexShrink:0}}>{icon}</span>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:16,color:"var(--text)",marginBottom:2}}>{title}</div>
+                        <div style={{fontSize:14,color:"var(--text2)",lineHeight:1.5}}>{desc}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  <button onClick={() => setOnboardStep(2)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:12,color:"var(--text2)",padding:"12px",fontWeight:600,fontSize:16,cursor:"pointer"}}>← Back</button>
+                  <button className="btn-primary" onClick={() => {
+                    const nc = {...config, baseRate: onboardRate, dailyMoneyGoal: onboardGoal};
+                    setConfig(nc); setTempConfig(nc); setTempGoal(onboardGoal); setActiveRate(onboardRate);
+                    try { localStorage.setItem(STORAGE_CONFIG, JSON.stringify(nc)); localStorage.setItem("mochi_onboarded","1"); } catch {}
+                    setOnboardStep(null);
+                    showToast("✅ You're all set!");
+                  }} style={{background:"var(--green2)",border:"none",borderRadius:12,color:"#fff",padding:"12px",fontWeight:700,fontSize:16,cursor:"pointer"}}>
+                    Let's go 🎉
+                  </button>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+
       {/* Goal */}
       {showGoal && (
-        <Modal onClose={() => setShowGoal(false)}>
+        <Modal onClose={() => { setShowGoal(false); }}>
           <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>DAILY GOAL</div>
           <div style={{fontSize:22,fontWeight:700,color:"var(--text)",marginBottom:20}}>How much do you want to earn today?</div>
           <label style={CC.label}>Amount in dollars</label>
@@ -1100,7 +1414,7 @@ export default function App() {
           <div style={{display:"flex",gap:8}}>
             <button className="btn-primary" onClick={() => { const val=parseFloat(tempGoal)||30; const nc={...config,dailyMoneyGoal:val}; setConfig(nc); setTempConfig(nc); try{localStorage.setItem(STORAGE_CONFIG,JSON.stringify(nc));}catch{} setShowGoal(false); showToast("🎯 Goal: $"+val.toFixed(2)); }}
               style={{flex:1,background:"var(--amber)",border:"none",borderRadius:10,color:"#000",padding:"12px",fontWeight:800,cursor:"pointer",fontSize:17}}>Save</button>
-            <button onClick={() => setShowGoal(false)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"12px 16px",cursor:"pointer",fontSize:17}}>✕</button>
+            <button onClick={() => { setShowGoal(false); }} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"12px 16px",cursor:"pointer",fontSize:17}}>✕</button>
           </div>
         </Modal>
       )}
@@ -1114,9 +1428,9 @@ export default function App() {
           {/* Theme selector */}
           <div style={{marginBottom:20}}>
             <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:10}}>THEME</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(68px,1fr))",gap:8}}>
               {Object.entries(THEMES).map(([key, t]) => {
-                const active = (config.theme || "light") === key;
+                const active = (config.theme || "arctic") === key;
                 return (
                   <button key={key} onClick={() => {
                     const nc = {...config, theme: key};
@@ -1137,6 +1451,40 @@ export default function App() {
               })}
             </div>
           </div>
+
+          {/* Base rate slider */}
+          <div style={{marginBottom:20}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>BASE RATE</div>
+              <div style={{fontFamily:"var(--mono)",fontWeight:800,fontSize:18,color:"var(--cyan)"}}>
+                ${(config.baseRate ?? 0.12).toFixed(2)}<span style={{fontSize:13,color:"var(--text3)",fontWeight:400}}>/min</span>
+              </div>
+            </div>
+            <input type="range" min={0.08} max={0.25} step={0.01}
+              value={config.baseRate ?? 0.12}
+              onChange={e => {
+                const base = parseFloat(e.target.value);
+                const nc = {...config, baseRate: base};
+                setConfig(nc);
+                setActiveRate(base);
+                try { localStorage.setItem(STORAGE_CONFIG, JSON.stringify(nc)); } catch {}
+              }}
+              style={{width:"100%",accentColor:"var(--cyan)",cursor:"pointer"}}
+            />
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"var(--text3)",marginTop:4,fontFamily:"var(--mono)"}}>
+              <span>$0.08</span><span>$0.25</span>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginTop:10}}>
+              {getRates(config.baseRate ?? 0.12).map(r => (
+                <div key={r.label} style={{background:"var(--bg)",border:"1px solid var(--border)",borderRadius:8,padding:"7px 4px",textAlign:"center"}}>
+                  <div style={{fontSize:16}}>{r.icon}</div>
+                  <div style={{fontSize:13,fontFamily:"var(--mono)",fontWeight:700,color:"var(--text)",marginTop:2}}>${r.value.toFixed(2)}</div>
+                  <div style={{fontSize:12,color:"var(--text3)"}}>{r.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {importError && <div style={{background:"#fef2f2",border:"1px solid var(--red)44",borderRadius:8,padding:"10px 12px",color:"var(--red)",fontSize:16,marginBottom:12}}>{importError}</div>}
 
           {importStep === "idle" && (
@@ -1196,7 +1544,7 @@ export default function App() {
           <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>NEW CALL</div>
           <div style={{fontSize:20,fontWeight:700,color:"var(--text)",marginBottom:16}}>{liveStart ? "Save recorded call" : "Add manually"}</div>
           <div style={{marginBottom:14}}>
-            <label style={CC.label}>Active rate</label>
+            <label style={{...CC.label,display:"flex",alignItems:"center"}}>Active rate <InfoTip id="rate-manual" activeId={tooltip} setActiveId={setTooltip} text="Normal = your base rate. Bronce/Silver/Gold are surge tiers, each $0.01 higher. Select whichever matches what Propio shows for this call." /></label>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
               {RATES.map(r => { const active = activeRate === r.value; return (
                 <button key={r.value} className="rate-btn" onClick={() => { setActiveRate(r.value); setManualForm(p => ({...p, pay: String(parseFloat((parseInt(p.duration||0) * r.value).toFixed(2)))})); }}
@@ -1275,7 +1623,7 @@ export default function App() {
 
       {/* Edit */}
       {editingId && (
-        <Modal onClose={() => setEditingId(null)}>
+        <Modal onClose={() => { setEditingId(null); }}>
           <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>EDIT CALL</div>
           <div style={{fontSize:20,fontWeight:700,color:"var(--text)",marginBottom:16}}>Edit call</div>
           <div style={{marginBottom:12}}>
@@ -1296,9 +1644,77 @@ export default function App() {
           </div>
           <div style={{display:"flex",gap:8}}>
             <button className="btn-primary" onClick={() => saveEdit(editingId)} style={{flex:1,background:"var(--cyan)",border:"none",borderRadius:10,color:"#000",padding:"12px",fontWeight:700,cursor:"pointer",fontSize:17}}>💾 Save</button>
-            <button onClick={() => setEditingId(null)} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"12px 16px",cursor:"pointer"}}>✕</button>
+            <button onClick={() => { setEditingId(null); }} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",padding:"12px 16px",cursor:"pointer"}}>✕</button>
           </div>
         </Modal>
+      )}
+
+      {/* Edit Cycles */}
+      {showEditCycles && (
+        <div onClick={() => setShowEditCycles(false)} style={{position:"fixed",inset:0,background:"rgba(10,10,20,0.75)",zIndex:400,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"20px 16px",overflowY:"auto"}}>
+          <div onClick={e => e.stopPropagation()} style={{...CC.card,padding:24,width:"100%",maxWidth:420,animation:"slideUp .2s ease"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+              <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>PAY CYCLES</div>
+              <button onClick={() => setShowEditCycles(false)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:20,lineHeight:1}}>✕</button>
+            </div>
+            <div style={{fontSize:20,fontWeight:700,color:"var(--text)",marginBottom:4}}>Edit cycles</div>
+            <div style={{fontSize:14,color:"var(--text3)",marginBottom:16}}>{editingCycles.length} cycles · format MM/DD/YYYY</div>
+
+            {/* Cycle list */}
+            <div style={{maxHeight:400,overflowY:"auto",marginBottom:16,display:"flex",flexDirection:"column",gap:10}}>
+              {editingCycles.map((c, i) => (
+                <div key={i} style={{background:"var(--bg)",borderRadius:10,padding:"12px 14px",border:"1px solid var(--border)"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                    <span style={{fontSize:14,fontWeight:700,color:"var(--text3)",letterSpacing:.5}}>CYCLE {i+1}</span>
+                    <button onClick={() => setEditingCycles(prev => prev.filter((_, j) => j !== i))}
+                      style={{background:"none",border:"none",color:"var(--red)",cursor:"pointer",fontSize:16,padding:"2px 6px"}}>🗑</button>
+                  </div>
+                  <div style={{display:"grid",gap:8}}>
+                    {[["Start","start"],["End","end"],["Payday","payDate"]].map(([lbl, field]) => (
+                      <div key={field}>
+                        <label style={{...CC.label,marginBottom:3}}>{lbl}</label>
+                        <input
+                          type="text"
+                          placeholder="MM/DD/YYYY"
+                          value={c[field]}
+                          onChange={e => setEditingCycles(prev => prev.map((cy, j) => j === i ? {...cy, [field]: e.target.value} : cy))}
+                          style={{...CC.input,fontSize:16,fontFamily:"var(--mono)"}}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Add cycle */}
+            <button onClick={() => setEditingCycles(prev => [...prev, { start:"", end:"", payDate:"" }])}
+              style={{width:"100%",background:"var(--bg)",border:"2px dashed var(--border2)",borderRadius:10,color:"var(--text2)",padding:"11px",fontWeight:600,cursor:"pointer",fontSize:16,marginBottom:16}}>
+              + Add cycle
+            </button>
+
+            {/* Actions */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              <button onClick={() => {
+                const reset = PAY_CYCLES.map(c => ({...c}));
+                setEditingCycles(reset);
+              }} style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text3)",padding:"11px",fontWeight:600,cursor:"pointer",fontSize:15}}>
+                ↺ Reset default
+              </button>
+              <button className="btn-primary" onClick={() => {
+                // Validate: all fields filled and parseable
+                const valid = editingCycles.every(c => c.start && c.end && c.payDate && toDate(c.start) && toDate(c.end) && toDate(c.payDate));
+                if (!valid) { showToast("⚠️ Check all dates (MM/DD/YYYY)"); return; }
+                setCustomCycles(editingCycles);
+                try { localStorage.setItem(STORAGE_CYCLES, JSON.stringify(editingCycles)); } catch {}
+                setShowEditCycles(false);
+                showToast("✅ Cycles saved");
+              }} style={{background:"var(--green2)",border:"none",borderRadius:10,color:"#fff",padding:"11px",fontWeight:700,cursor:"pointer",fontSize:15}}>
+                💾 Save
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Page content ─────────────────────────────────────────────────── */}
@@ -1336,7 +1752,7 @@ export default function App() {
               {/* Idle cost */}
               <div style={{marginTop:14,paddingTop:14,borderTop:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1}}>IDLE</div>
-                <div style={{fontFamily:"var(--mono)",fontWeight:900,fontSize:22,color:"var(--red)"}}>-${(idleSecs / 60 * 0.12).toFixed(2)}</div>
+                <div style={{fontFamily:"var(--mono)",fontWeight:900,fontSize:22,color:"var(--red)"}}>-${(idleSecs / 60 * (config.baseRate ?? 0.12)).toFixed(2)}</div>
               </div>
             </div>
 
@@ -1344,8 +1760,8 @@ export default function App() {
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
               {[
                 { label: liveActive ? "⏹️ Stop" : "🔴 Live", active: liveActive, color:"var(--green)",  action: () => liveActive ? stopLiveCall() : startLiveCall() },
-                { label: "✍️ Manual",                             active: false,       color:"var(--cyan)",   action: () => setShowManual(true) },
-                { label: "📋 Paste",                              active: false,       color:"var(--purple)", action: () => setShowPaste(true) },
+                { label: "✍️ Manual",                             active: false,       color:"var(--cyan)",   action: () => { setShowManual(true); } },
+                { label: "📋 Paste",                              active: false,       color:"var(--purple)", action: () => { setShowPaste(true); } },
               ].map(btn => (
                 <button key={btn.label} className="action-btn" onClick={btn.action} style={{padding:"16px 8px",borderRadius:14,border:`1px solid ${btn.active?btn.color:"var(--border)"}`,cursor:"pointer",background:btn.active?`${btn.color}11`:"var(--bg2)",color:btn.active?btn.color:"var(--text)",fontWeight:700,fontSize:16,display:"flex",flexDirection:"column",alignItems:"center",gap:6,boxShadow:btn.active?`0 0 14px ${btn.color}22`:"none",transition:"all .15s"}}>
                   <span style={{fontSize:22}}>{btn.label.split(" ")[0]}</span>
@@ -1361,10 +1777,16 @@ export default function App() {
                 <div style={{fontSize:16,fontFamily:"var(--mono)",color:"var(--text2)"}}>{todayCalls.length}</div>
               </div>
               {todayCalls.length === 0 && (
-                <div style={{textAlign:"center",padding:"24px 0",color:"var(--text3)"}}>
-                  <div style={{fontSize:32,marginBottom:8}}>📞</div>
-                  <div style={{fontSize:17}}>No calls today</div>
-                  <div style={{fontSize:15,marginTop:4}}>Use the buttons above to log calls</div>
+                <div style={{textAlign:"center",padding:"28px 16px",color:"var(--text3)"}}>
+                  <div style={{fontSize:36,marginBottom:12}}>📞</div>
+                  <div style={{fontSize:17,fontWeight:700,color:"var(--text2)",marginBottom:8}}>No calls yet today</div>
+                  <div style={{fontSize:15,lineHeight:1.6,marginBottom:16}}>
+                    Tap <strong style={{color:"var(--red)"}}>🔴 Live</strong> before your next call,<br/>
+                    or use <strong style={{color:"var(--cyan)"}}>✍️ Manual</strong> to enter one you already took.
+                  </div>
+                  <div style={{background:"var(--bg)",border:"1px solid var(--border)",borderRadius:10,padding:"10px 14px",display:"inline-block",fontSize:14,color:"var(--text3)"}}>
+                    💡 You can also paste a line from Propio using <strong style={{color:"var(--text2)"}}>📋 Paste</strong>
+                  </div>
                 </div>
               )}
               {todayCalls.map((c, i) => (
@@ -1375,7 +1797,12 @@ export default function App() {
                       <div style={{fontWeight:600,fontSize:17}}>#{c.customerId}</div>
                       <div style={{fontSize:15,color:"var(--text2)",fontFamily:"var(--mono)"}}>{c.callStart} · {c.duration}m</div>
                     </div>
-                    {(c.duration > 0 && (c.pay / c.duration) > 0.12) && <span style={{fontSize:12,background:"#fef3c7",color:"var(--amber)",padding:"2px 7px",borderRadius:6,border:"1px solid var(--amber)44",fontWeight:700}}>⚡ SURGE</span>}
+                    {isSurge(c, config.baseRate) && (
+                      <span style={{display:"inline-flex",alignItems:"center",gap:3}}>
+                        <span style={{fontSize:12,background:"#fef3c7",color:"var(--amber)",padding:"2px 7px",borderRadius:6,border:"1px solid var(--amber)44",fontWeight:700}}>⚡ SURGE</span>
+                        <InfoTip id={`surge-${c.id}`} activeId={tooltip} setActiveId={setTooltip} text={`This call's rate ($${(c.pay/c.duration).toFixed(4)}/min) is above your base rate ($${(config.baseRate??0.12).toFixed(2)}/min) — it counted as a surge hour.`}/>
+                      </span>
+                    )}
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
                     <div style={{fontWeight:800,fontSize:17,fontFamily:"var(--mono)",color:"var(--green)"}}>${c.pay.toFixed(2)}</div>
@@ -1393,7 +1820,11 @@ export default function App() {
           <div>
             {/* Score */}
             <div style={{...CC.cardGlow(scoreColor),padding:24,marginBottom:12,textAlign:"center"}} className="card">
-              <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1.5,marginBottom:8}}>DAY SCORE</div>
+              <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1.5,marginBottom:8,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+                DAY SCORE
+                <InfoTip id="score" activeId={tooltip} setActiveId={setTooltip}
+                  text="Score out of 100: Goal (40pts) — how close you are to your daily earnings goal. Rhythm (30pts) — how tight your gap between calls is. Streak (20pts) — consecutive active days. Active (10pts) — whether you've taken calls today." />
+              </div>
               <div style={{fontSize:72,fontWeight:900,fontFamily:"var(--mono)",color:scoreColor,lineHeight:1}}>{score}</div>
               <div style={{fontSize:17,color:scoreColor,fontWeight:600,marginTop:6,letterSpacing:.5}}>{scoreLabel}</div>
               <div style={{marginTop:14,background:"var(--bg)",borderRadius:99,height:6,overflow:"hidden"}}>
@@ -1427,7 +1858,10 @@ export default function App() {
             {/* Cycle projection */}
             {currentCycle && (
               <div style={{...CC.cardGlow("var(--amber)"),padding:20,marginBottom:12}} className="card">
-                <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4}}>CYCLE PROJECTION</div>
+                <div style={{fontSize:14,color:"var(--text3)",fontWeight:700,letterSpacing:1,marginBottom:4,display:"flex",alignItems:"center",gap:4}}>
+                  CYCLE PROJECTION
+                  <InfoTip id="projection" activeId={tooltip} setActiveId={setTooltip} text="Estimated total earnings by end of this pay cycle, based on your average daily pace so far." />
+                </div>
                 <div style={{fontSize:36,fontWeight:900,fontFamily:"var(--mono)",color:"var(--amber)"}}>${projection !== null ? projection.toFixed(2) : "--"}</div>
                 <div style={{fontSize:15,color:"var(--text2)",marginTop:2}}>At this rate by end of cycle</div>
               </div>
@@ -1617,7 +2051,7 @@ export default function App() {
               );
             })()}
 
-            <HeatmapCard heatmap={heatmap} maxHeat={maxHeat} scope={heatmapScope} setScope={setHeatmapScope} cycleLabel={heatmapCycleLabel}/>
+            <HeatmapCard heatmap={heatmap} maxHeat={maxHeat} scope={heatmapScope} setScope={setHeatmapScope} cycles={activeCycles}/>
 
             {/* Streak — cycle focused */}
             {(() => {
@@ -1649,7 +2083,7 @@ export default function App() {
               }
 
               // Goal hit: days where total pay >= dailyGoal
-              const dailyGoal   = config.goal || 30;
+              const dailyGoal   = config.dailyMoneyGoal || 30;
               const goalDays    = cycleActive.filter(d =>
                 (byDate[d] || []).reduce((s, c) => s + c.pay, 0) >= dailyGoal
               ).length;
@@ -1772,14 +2206,20 @@ export default function App() {
         {/* CYCLE */}
         {tab === "cycle" && (
           <div>
-            <div style={{display:"flex",gap:8,marginBottom:16}}>
-              <Pill active={cycleView==="current"} onClick={() => setCycleView("current")}>Current cycle</Pill>
-              <Pill active={cycleView==="all"}     onClick={() => setCycleView("all")}>All</Pill>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <div style={{display:"flex",gap:8}}>
+                <Pill active={cycleView==="current"} onClick={() => setCycleView("current")}>Current cycle</Pill>
+                <Pill active={cycleView==="all"}     onClick={() => setCycleView("all")}>All</Pill>
+              </div>
+              <button onClick={() => { setEditingCycles(activeCycles.map(c => ({...c}))); setShowEditCycles(true); }}
+                style={{background:"transparent",border:"1px solid var(--border2)",borderRadius:8,color:"var(--text2)",padding:"6px 12px",cursor:"pointer",fontSize:15,fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
+                ✏️ Edit
+              </button>
             </div>
             {cycleView === "current" && (!currentCycle
               ? <div style={{color:"var(--text3)",fontSize:17,textAlign:"center",padding:"32px 0"}}>No active cycle.</div>
               : (() => {
-                  const stats    = getCycleStats(currentCycle);
+                  const stats    = getCycleStats(currentCycle, billableCalls);
                   const daysLeft = daysUntil(currentCycle.end), dtp = daysUntil(currentCycle.payDate);
                   const s = toDate(currentCycle.start), e = toDate(currentCycle.end);
                   const total  = Math.round((e - s) / 86400000) + 1;
@@ -1816,8 +2256,8 @@ export default function App() {
                   );
                 })()
             )}
-            {cycleView === "all" && PAY_CYCLES.map((cycle, i) => {
-              const stats     = getCycleStats(cycle);
+            {cycleView === "all" && activeCycles.map((cycle, i) => {
+              const stats     = getCycleStats(cycle, billableCalls);
               const isCurrent = currentCycle && cycle.start === currentCycle.start;
               const isPast    = toDate(cycle.end) < new Date();
               const dtp       = daysUntil(cycle.payDate);
@@ -1854,7 +2294,7 @@ export default function App() {
               const bil        = dayCalls.filter(c => c.billable === "Yes");
               const mins       = bil.reduce((s, c) => s + c.duration, 0);
               const money      = bil.reduce((s, c) => s + c.pay, 0);
-              const surgeCount = bil.filter(c => c.duration > 0 && (c.pay / c.duration) > 0.12).length;
+              const surgeCount = bil.filter(c => isSurge(c, config.baseRate)).length;
               const isOpen     = expandedDays.has(date);
               const toggle     = () => setExpandedDays(prev => { const next = new Set(prev); isOpen ? next.delete(date) : next.add(date); return next; });
               return (
@@ -1878,7 +2318,7 @@ export default function App() {
                           <div style={{display:"flex",alignItems:"center",gap:8}}>
                             <span style={{fontWeight:600,fontFamily:"var(--mono)",color:"var(--text2)"}}>{c.customerId}</span>
                             <span style={{color:"var(--text3)",fontFamily:"var(--mono)"}}>{c.callStart}</span>
-                            {(c.duration > 0 && (c.pay / c.duration) > 0.12) && <span style={{fontSize:12,background:"#fef3c7",color:"var(--amber)",padding:"1px 6px",borderRadius:4,border:"1px solid var(--amber)44",fontWeight:700}}>⚡ SURGE</span>}
+                            {isSurge(c, config.baseRate) && <span style={{fontSize:12,background:"#fef3c7",color:"var(--amber)",padding:"1px 6px",borderRadius:4,border:"1px solid var(--amber)44",fontWeight:700}}>⚡ SURGE</span>}
                             {c.billable !== "Yes" && <span style={{fontSize:12,background:"var(--red)22",color:"var(--red)",padding:"1px 6px",borderRadius:4}}>NB</span>}
                           </div>
                           <div style={{display:"flex",gap:10,alignItems:"center"}}>
