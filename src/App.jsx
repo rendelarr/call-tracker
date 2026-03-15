@@ -2340,10 +2340,18 @@ export default function App() {
       </div>
 
       {/* Footer */}
-      <div style={{textAlign:"center",padding:"12px 20px 24px",display:"flex",justifyContent:"center",alignItems:"center",gap:16}}>
-        <a href="mailto:renatadclarranaga@gmail.com" style={{fontSize:11,color:"var(--text3)",textDecoration:"none",fontFamily:"var(--mono)"}}>Contact me</a>
+      <div style={{textAlign:"center",padding:"12px 20px 24px",display:"flex",justifyContent:"center",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+        <a href="mailto:renatadclarranaga@gmail.com" style={{fontSize:11,color:"var(--text3)",textDecoration:"none",fontFamily:"var(--mono)",display:"flex",alignItems:"center",gap:4}}>
+          <span>✉️</span><span>Contact me</span>
+        </a>
         <span style={{color:"var(--border2)"}}>·</span>
-        <a href="https://github.com/rendelarr" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"var(--text3)",textDecoration:"none",fontFamily:"var(--mono)"}}>github/rendelarr</a>
+        <a href="https://github.com/rendelarr" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"var(--text3)",textDecoration:"none",fontFamily:"var(--mono)",display:"flex",alignItems:"center",gap:4}}>
+          <span>💻</span><span>github/rendelarr</span>
+        </a>
+        <span style={{color:"var(--border2)"}}>·</span>
+        <a href="https://ko-fi.com/rendelarr" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"var(--text3)",textDecoration:"none",fontFamily:"var(--mono)",display:"flex",alignItems:"center",gap:4}}>
+          <span>☕</span><span>ko-fi/rendelarr</span>
+        </a>
       </div>
 
       {/* Bottom nav */}
